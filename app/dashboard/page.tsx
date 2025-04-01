@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Mic, BookOpen, BarChart2 } from 'lucide-react'
 import Link from "next/link"
 import RecentRecordings from "@/components/recent-recordings"
-import VocabularyList from "@/components/vocabulary-list"
+import RecentVocabulary from "@/components/recent-vocabulary"
 import ProgressStats from "@/components/progress-stats"
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -68,34 +68,6 @@ export default function DashboardPage() {
       toast({
         title: "Error",
         description: "Failed to load vocabulary count. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const fetchRecentRecordings = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
-
-      const { data, error } = await supabase
-        .from('recordings')
-        .select(`
-          *,
-          analyses:analyses(count)
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(5)
-
-      if (error) throw error
-
-      setRecentRecordings(data || [])
-    } catch (error) {
-      console.error('Error fetching recent recordings:', error)
-      toast({
-        title: "Error",
-        description: "Failed to load recent recordings",
         variant: "destructive",
       })
     }
@@ -187,12 +159,12 @@ export default function DashboardPage() {
 
             <TabsContent value="vocabulary" className="space-y-4">
               <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Your Vocabulary</h2>
+                <h2 className="text-xl font-semibold">Recent Vocabulary</h2>
                 <Button variant="outline" size="sm" asChild>
                   <Link href="/dashboard/vocabulary">View All</Link>
                 </Button>
               </div>
-              <VocabularyList />
+              <RecentVocabulary />
             </TabsContent>
 
             <TabsContent value="progress" className="space-y-4">
