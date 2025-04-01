@@ -23,7 +23,7 @@ export default async function RecordPage() {
   const targetLanguage = settings?.target_language || 'en'
 
   return (
-    <>
+    <main className="flex-1 container py-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">New Recording</h1>
@@ -31,12 +31,14 @@ export default async function RecordPage() {
         </div>
       </div>
 
-      <div className="max-w-2xl">
-        <RecordInterface 
-          sourceLanguages={sourceLanguages}
-          targetLanguage={targetLanguage}
-        />
+      <div className="grid place-items-center">
+        <div className="w-full max-w-2xl">
+          <RecordInterface 
+            sourceLanguages={sourceLanguages}
+            targetLanguage={targetLanguage}
+          />
+        </div>
       </div>
-    </>
+    </main>
   )
 }

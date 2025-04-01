@@ -2,10 +2,17 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Mic, Square, Loader2, Play, RefreshCcw, Pause } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
+import { Mic, Square, Loader2, Play, RefreshCcw, Pause, Upload, FileText } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
+import { Badge } from "@/components/ui/badge"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 
 interface RecordInterfaceProps {
   sourceLanguages: string[]
@@ -91,9 +98,9 @@ export default function RecordInterface({ sourceLanguages, targetLanguage }: Rec
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
-      setFinalDuration(recordingTime)
       mediaRecorderRef.current.stop()
       setIsRecording(false)
+      setFinalDuration(recordingTime)
     }
   }
 
@@ -275,132 +282,219 @@ export default function RecordInterface({ sourceLanguages, targetLanguage }: Rec
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Record Audio</CardTitle>
-        {!completedRecording && (
-          <CardDescription>
-            Record your speech in {sourceLanguages.map(lang => 
-              lang === 'en' ? 'English' : 
-              lang === 'hu' ? 'Hungarian' : 
-              lang === 'da' ? 'Danish' : 'German'
-            ).join(' or ')}
-          </CardDescription>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {!completedRecording ? (
-          <>
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-medium mb-2">Source Languages</h3>
-                <div className="flex gap-2">
-                  {sourceLanguages.map((lang) => (
-                    <span
-                      key={lang}
-                      className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
+    <Accordion type="single" defaultValue="record-audio" className="space-y-6">
+      <AccordionItem value="record-audio" className="border-none">
+        <Card className="w-full">
+          <CardHeader className="space-y-1">
+            <AccordionTrigger className="pt-0">
+              <CardTitle className="text-2xl">Record Audio</CardTitle>
+            </AccordionTrigger>
+            {!completedRecording && (
+              <CardDescription>
+                Record your speech in {sourceLanguages.map(lang => 
+                  lang === 'en' ? 'English' : 
+                  lang === 'hu' ? 'Hungarian' : 
+                  lang === 'da' ? 'Danish' : 'German'
+                ).join(' or ')}
+              </CardDescription>
+            )}
+          </CardHeader>
+          <AccordionContent>
+            <CardContent>
+              {!completedRecording ? (
+                <div className="space-y-8">
+                  <div className="grid gap-6 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-medium">Source Languages</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {sourceLanguages.map((lang) => (
+                          <Badge
+                            key={lang}
+                            variant="secondary"
+                            className="text-sm"
+                          >
+                            {lang === 'en' ? 'English' : 
+                             lang === 'hu' ? 'Hungarian' : 
+                             lang === 'da' ? 'Danish' : 'German'}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-medium">Target Language</h3>
+                      <Badge
+                        variant="secondary"
+                        className="text-sm"
+                      >
+                        {targetLanguage === 'en' ? 'English' : 
+                         targetLanguage === 'hu' ? 'Hungarian' : 
+                         targetLanguage === 'da' ? 'Danish' : 'German'}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-center space-y-6">
+                    {isRecording && (
+                      <div className="text-xl font-mono text-primary">
+                        {formatTime(recordingTime)}
+                      </div>
+                    )}
+                    <Button
+                      size="lg"
+                      variant={isRecording ? "destructive" : "default"}
+                      onClick={isRecording ? stopRecording : startRecording}
+                      disabled={isProcessing || isTranscribing}
+                      className="w-32 h-32 rounded-full relative"
                     >
-                      {lang === 'en' ? 'English' : 
-                       lang === 'hu' ? 'Hungarian' : 
-                       lang === 'da' ? 'Danish' : 'German'}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium mb-2">Target Language</h3>
-                <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
-                  {targetLanguage === 'en' ? 'English' : 
-                   targetLanguage === 'hu' ? 'Hungarian' : 
-                   targetLanguage === 'da' ? 'Danish' : 'German'}
-                </span>
-              </div>
-            </div>
+                      {isRecording ? (
+                        <Square className="h-8 w-8" />
+                      ) : isTranscribing ? (
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                      ) : (
+                        <Mic className="h-8 w-8" />
+                      )}
+                    </Button>
+                    
+                    {isProcessing && !isTranscribing && (
+                      <div className="text-sm text-muted-foreground flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Processing recording...
+                      </div>
+                    )}
 
-            <div className="flex flex-col items-center space-y-4">
-              <Button
-                size="lg"
-                variant={isRecording ? "destructive" : "default"}
-                onClick={isRecording ? stopRecording : startRecording}
-                disabled={isProcessing || isTranscribing}
-                className="w-32 h-32 rounded-full"
-              >
-                {isRecording ? (
-                  <Square className="h-8 w-8" />
-                ) : isTranscribing ? (
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                ) : (
-                  <Mic className="h-8 w-8" />
-                )}
-              </Button>
-              
-              {isRecording && (
-                <div className="text-2xl font-mono">
-                  {formatTime(recordingTime)}
+                    {isTranscribing && (
+                      <div className="text-sm text-muted-foreground flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Transcribing audio...
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-medium">{completedRecording.title}</h3>
+                    <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <span>Duration:</span>
+                        <Badge variant="secondary">
+                          {formatTime(completedRecording.duration)}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span>Language:</span>
+                        <Badge variant="secondary">
+                          {completedRecording.language === 'en' ? 'English' :
+                           completedRecording.language === 'hu' ? 'Hungarian' :
+                           completedRecording.language === 'da' ? 'Danish' : 'German'}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-center gap-4">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={isPlaying ? stopPlayback : playRecording}
+                    >
+                      {isPlaying ? (
+                        <Pause className="h-4 w-4" />
+                      ) : (
+                        <Play className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={resetRecording}
+                    >
+                      <RefreshCcw className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-medium">Transcription</h3>
+                    <Card className="p-4">
+                      <p className="text-sm whitespace-pre-wrap">{completedRecording.transcription}</p>
+                    </Card>
+                  </div>
                 </div>
               )}
+            </CardContent>
+          </AccordionContent>
+        </Card>
+      </AccordionItem>
 
-              {isProcessing && !isTranscribing && (
-                <div className="text-sm text-muted-foreground">
-                  Processing recording...
+      <AccordionItem value="upload-audio" className="border-none">
+        <Card className="w-full">
+          <CardHeader className="space-y-1">
+            <AccordionTrigger className="pt-0">
+              <CardTitle className="text-2xl">Upload Audio</CardTitle>
+            </AccordionTrigger>
+            <CardDescription>
+              Upload an audio file to transcribe and analyze
+            </CardDescription>
+          </CardHeader>
+          <AccordionContent>
+            <CardContent className="py-8">
+              <div className="flex flex-col items-center justify-center space-y-4 text-center">
+                <div className="rounded-full bg-primary/10 p-6">
+                  <Upload className="h-12 w-12 text-primary" />
                 </div>
-              )}
-
-              {isTranscribing && (
-                <div className="text-sm text-muted-foreground">
-                  Transcribing audio...
+                <div>
+                  <h3 className="text-lg font-medium">Coming Soon</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    You'll soon be able to upload audio files directly for analysis
+                  </p>
                 </div>
-              )}
-            </div>
-          </>
-        ) : (
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <h3 className="text-lg font-medium">{completedRecording.title}</h3>
-              <div className="flex flex-col gap-1">
-                <p className="text-sm text-muted-foreground">
-                  Duration: {formatTime(completedRecording.duration)}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Language: {
-                    completedRecording.language === 'en' ? 'English' :
-                    completedRecording.language === 'hu' ? 'Hungarian' :
-                    completedRecording.language === 'da' ? 'Danish' : 'German'
-                  }
-                </p>
+                <Button disabled className="mt-2">
+                  Upload Audio
+                </Button>
               </div>
-            </div>
+            </CardContent>
+          </AccordionContent>
+        </Card>
+      </AccordionItem>
 
-            <div className="flex justify-center gap-4">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={isPlaying ? stopPlayback : playRecording}
-              >
-                {isPlaying ? (
-                  <Pause className="h-4 w-4" />
-                ) : (
-                  <Play className={`h-4 w-4`} />
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={resetRecording}
-              >
-                <RefreshCcw className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium">Transcription</h3>
-              <div className="rounded-lg bg-muted p-4">
-                <p className="text-sm">{completedRecording.transcription}</p>
+      <AccordionItem value="upload-text" className="border-none">
+        <Card className="w-full">
+          <CardHeader className="space-y-1">
+            <AccordionTrigger className="pt-0">
+              <CardTitle className="text-2xl">Upload Text</CardTitle>
+            </AccordionTrigger>
+            <CardDescription>
+              Upload or paste text for language analysis
+            </CardDescription>
+          </CardHeader>
+          <AccordionContent>
+            <CardContent className="py-8">
+              <div className="flex flex-col items-center justify-center space-y-4 text-center">
+                <div className="rounded-full bg-primary/10 p-6">
+                  <FileText className="h-12 w-12 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium">Coming Soon</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    You'll soon be able to analyze text directly by uploading documents or pasting content
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Supported formats will include: TXT, PDF, DOC, and more
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button disabled>
+                    Upload Document
+                  </Button>
+                  <Button disabled variant="outline">
+                    Paste Text
+                  </Button>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+            </CardContent>
+          </AccordionContent>
+        </Card>
+      </AccordionItem>
+    </Accordion>
   )
 } 
