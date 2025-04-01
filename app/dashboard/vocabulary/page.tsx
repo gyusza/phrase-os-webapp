@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { BookOpen, Search, Plus, Edit, Trash, Volume2 } from 'lucide-react'
-import DashboardHeader from "@/components/dashboard-header"
 import { useToast } from "@/hooks/use-toast"
 
 // Update the mock data to include Danish examples
@@ -54,114 +53,110 @@ export default function VocabularyPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <DashboardHeader />
-
-      <main className="flex-1 container py-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Vocabulary</h1>
-            <p className="text-muted-foreground">Manage your personalized vocabulary list.</p>
-          </div>
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" />
-            Add Phrase
-          </Button>
+    <main className="flex-1 container py-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Vocabulary</h1>
+          <p className="text-muted-foreground">Manage your personalized vocabulary list.</p>
         </div>
+        <Button className="gap-2">
+          <Plus className="h-4 w-4" />
+          Add Phrase
+        </Button>
+      </div>
 
-        <div className="grid gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Your Vocabulary</CardTitle>
-              <CardDescription>These are the phrases you use most frequently in your recordings.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="search"
-                    placeholder="Search phrases or translations..."
-                    className="pl-8"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                <Tabs value={activeCategory} onValueChange={setActiveCategory} className="w-full sm:w-auto">
-                  <TabsList className="w-full grid grid-cols-3 sm:flex sm:w-auto">
-                    {categories.map((category) => (
-                      <TabsTrigger key={category} value={category} className="capitalize">
-                        {category}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </Tabs>
+      <div className="grid gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Your Vocabulary</CardTitle>
+            <CardDescription>These are the phrases you use most frequently in your recordings.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search phrases or translations..."
+                  className="pl-8"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
               </div>
+              <Tabs value={activeCategory} onValueChange={setActiveCategory} className="w-full sm:w-auto">
+                <TabsList className="w-full grid grid-cols-3 sm:flex sm:w-auto">
+                  {categories.map((category) => (
+                    <TabsTrigger key={category} value={category} className="capitalize">
+                      {category}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            </div>
 
-              <div className="space-y-4">
-                {filteredVocabulary.length > 0 ? (
-                  filteredVocabulary.map((item) => (
-                    <Card key={item.id} className="overflow-hidden">
-                      <div className="flex flex-col sm:flex-row">
-                        <div className="flex-1 p-4 sm:p-6">
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="space-y-1">
-                              <h3 className="font-medium">{item.phrase}</h3>
-                              <p className="text-muted-foreground">{item.translation}</p>
-                            </div>
-                            <Badge variant="outline" className="capitalize">
-                              {item.category}
-                            </Badge>
+            <div className="space-y-4">
+              {filteredVocabulary.length > 0 ? (
+                filteredVocabulary.map((item) => (
+                  <Card key={item.id} className="overflow-hidden">
+                    <div className="flex flex-col sm:flex-row">
+                      <div className="flex-1 p-4 sm:p-6">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="space-y-1">
+                            <h3 className="font-medium">{item.phrase}</h3>
+                            <p className="text-muted-foreground">{item.translation}</p>
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            Used {item.frequency} times • Source: {item.source}
-                          </div>
+                          <Badge variant="outline" className="capitalize">
+                            {item.category}
+                          </Badge>
                         </div>
-                        <div className="flex sm:flex-col border-t sm:border-t-0 sm:border-l">
-                          <Button
-                            variant="ghost"
-                            className="flex-1 rounded-none"
-                            onClick={() => playAudio(item.phrase)}
-                          >
-                            <Volume2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            className="flex-1 rounded-none"
-                            onClick={() => playAudio(item.translation)}
-                          >
-                            <Volume2 className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" className="flex-1 rounded-none">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            className="flex-1 rounded-none text-destructive"
-                            onClick={() => deleteVocabularyItem(item.id)}
-                          >
-                            <Trash className="h-4 w-4" />
-                          </Button>
+                        <div className="text-xs text-muted-foreground">
+                          Used {item.frequency} times • Source: {item.source}
                         </div>
                       </div>
-                    </Card>
-                  ))
-                ) : (
-                  <div className="text-center py-12">
-                    <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium">No vocabulary items found</h3>
-                    <p className="text-muted-foreground">
-                      {searchTerm
-                        ? "Try a different search term or category."
-                        : "Record your speech to start building your vocabulary."}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
-    </div>
+                      <div className="flex sm:flex-col border-t sm:border-t-0 sm:border-l">
+                        <Button
+                          variant="ghost"
+                          className="flex-1 rounded-none"
+                          onClick={() => playAudio(item.phrase)}
+                        >
+                          <Volume2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="flex-1 rounded-none"
+                          onClick={() => playAudio(item.translation)}
+                        >
+                          <Volume2 className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" className="flex-1 rounded-none">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="flex-1 rounded-none text-destructive"
+                          onClick={() => deleteVocabularyItem(item.id)}
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))
+              ) : (
+                <div className="text-center py-12">
+                  <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium">No vocabulary items found</h3>
+                  <p className="text-muted-foreground">
+                    {searchTerm
+                      ? "Try a different search term or category."
+                      : "Record your speech to start building your vocabulary."}
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </main>
   )
 }
