@@ -1,0 +1,970 @@
+[
+  {
+    "json_agg": [
+      {
+        "type": "table",
+        "name": "profiles",
+        "columns": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "email",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "full_name",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "avatar_url",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "nullable": false,
+            "default": "timezone('utc'::text, now())"
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp with time zone",
+            "nullable": false,
+            "default": "timezone('utc'::text, now())"
+          },
+          {
+            "name": "settings",
+            "type": "jsonb",
+            "nullable": true,
+            "default": "'{}'::jsonb"
+          }
+        ],
+        "constraints": [
+          {
+            "name": "profiles_id_fkey",
+            "type": "FOREIGN KEY",
+            "columns": [
+              "id"
+            ]
+          },
+          {
+            "name": "profiles_pkey",
+            "type": "PRIMARY KEY",
+            "columns": [
+              "id"
+            ]
+          },
+          {
+            "name": "2200_32646_1_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32646_5_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32646_6_not_null",
+            "type": "CHECK",
+            "columns": null
+          }
+        ]
+      },
+      {
+        "type": "table",
+        "name": "recordings",
+        "columns": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "nullable": false,
+            "default": "gen_random_uuid()"
+          },
+          {
+            "name": "user_id",
+            "type": "uuid",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "title",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "audio_url",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "duration",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "transcription",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "language",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "nullable": false,
+            "default": "timezone('utc'::text, now())"
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp with time zone",
+            "nullable": false,
+            "default": "timezone('utc'::text, now())"
+          },
+          {
+            "name": "metadata",
+            "type": "jsonb",
+            "nullable": true,
+            "default": "'{}'::jsonb"
+          },
+          {
+            "name": "status",
+            "type": "text",
+            "nullable": false,
+            "default": "'new'::text"
+          }
+        ],
+        "constraints": [
+          {
+            "name": "recordings_pkey",
+            "type": "PRIMARY KEY",
+            "columns": [
+              "id"
+            ]
+          },
+          {
+            "name": "recordings_status_check",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "recordings_user_id_fkey",
+            "type": "FOREIGN KEY",
+            "columns": [
+              "user_id"
+            ]
+          },
+          {
+            "name": "2200_32663_1_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32663_2_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32663_3_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32663_4_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32663_5_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32663_7_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32663_8_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32663_9_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32663_11_not_null",
+            "type": "CHECK",
+            "columns": null
+          }
+        ]
+      },
+      {
+        "type": "table",
+        "name": "vocabulary",
+        "columns": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "nullable": false,
+            "default": "gen_random_uuid()"
+          },
+          {
+            "name": "user_id",
+            "type": "uuid",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "word",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "translation",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "language",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "context",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "example_sentence",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "difficulty_level",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "last_reviewed",
+            "type": "timestamp with time zone",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "next_review",
+            "type": "timestamp with time zone",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "nullable": false,
+            "default": "timezone('utc'::text, now())"
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp with time zone",
+            "nullable": false,
+            "default": "timezone('utc'::text, now())"
+          },
+          {
+            "name": "metadata",
+            "type": "jsonb",
+            "nullable": true,
+            "default": "'{}'::jsonb"
+          }
+        ],
+        "constraints": [
+          {
+            "name": "vocabulary_difficulty_level_check",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "vocabulary_pkey",
+            "type": "PRIMARY KEY",
+            "columns": [
+              "id"
+            ]
+          },
+          {
+            "name": "vocabulary_user_id_fkey",
+            "type": "FOREIGN KEY",
+            "columns": [
+              "user_id"
+            ]
+          },
+          {
+            "name": "2200_32683_1_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32683_2_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32683_3_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32683_4_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32683_5_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32683_11_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32683_12_not_null",
+            "type": "CHECK",
+            "columns": null
+          }
+        ]
+      },
+      {
+        "type": "table",
+        "name": "vocabulary_reviews",
+        "columns": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "nullable": false,
+            "default": "gen_random_uuid()"
+          },
+          {
+            "name": "user_id",
+            "type": "uuid",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "vocabulary_id",
+            "type": "uuid",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "review_date",
+            "type": "timestamp with time zone",
+            "nullable": false,
+            "default": "timezone('utc'::text, now())"
+          },
+          {
+            "name": "success",
+            "type": "boolean",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "difficulty_rating",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "notes",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "nullable": false,
+            "default": "timezone('utc'::text, now())"
+          }
+        ],
+        "constraints": [
+          {
+            "name": "vocabulary_reviews_difficulty_rating_check",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "vocabulary_reviews_pkey",
+            "type": "PRIMARY KEY",
+            "columns": [
+              "id"
+            ]
+          },
+          {
+            "name": "vocabulary_reviews_user_id_fkey",
+            "type": "FOREIGN KEY",
+            "columns": [
+              "user_id"
+            ]
+          },
+          {
+            "name": "vocabulary_reviews_vocabulary_id_fkey",
+            "type": "FOREIGN KEY",
+            "columns": [
+              "vocabulary_id"
+            ]
+          },
+          {
+            "name": "2200_32704_1_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32704_2_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32704_3_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32704_4_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32704_5_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32704_8_not_null",
+            "type": "CHECK",
+            "columns": null
+          }
+        ]
+      },
+      {
+        "type": "table",
+        "name": "user_settings",
+        "columns": [
+          {
+            "name": "user_id",
+            "type": "uuid",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "daily_vocabulary_goal",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "notification_preferences",
+            "type": "jsonb",
+            "nullable": true,
+            "default": "'{}'::jsonb"
+          },
+          {
+            "name": "theme",
+            "type": "text",
+            "nullable": true,
+            "default": "'light'::text"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "nullable": false,
+            "default": "timezone('utc'::text, now())"
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp with time zone",
+            "nullable": false,
+            "default": "timezone('utc'::text, now())"
+          },
+          {
+            "name": "source_languages",
+            "type": "ARRAY",
+            "nullable": true,
+            "default": "ARRAY['en'::text]"
+          },
+          {
+            "name": "target_language",
+            "type": "text",
+            "nullable": true,
+            "default": "'da'::text"
+          }
+        ],
+        "constraints": [
+          {
+            "name": "source_languages_max_length",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "target_language_not_in_source",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "user_settings_pkey",
+            "type": "PRIMARY KEY",
+            "columns": [
+              "user_id"
+            ]
+          },
+          {
+            "name": "user_settings_user_id_fkey",
+            "type": "FOREIGN KEY",
+            "columns": [
+              "user_id"
+            ]
+          },
+          {
+            "name": "2200_32727_1_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32727_6_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32727_7_not_null",
+            "type": "CHECK",
+            "columns": null
+          }
+        ]
+      },
+      {
+        "type": "table",
+        "name": "progress_stats",
+        "columns": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "nullable": false,
+            "default": "gen_random_uuid()"
+          },
+          {
+            "name": "user_id",
+            "type": "uuid",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "date",
+            "type": "date",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "recordings_count",
+            "type": "integer",
+            "nullable": true,
+            "default": "0"
+          },
+          {
+            "name": "vocabulary_added",
+            "type": "integer",
+            "nullable": true,
+            "default": "0"
+          },
+          {
+            "name": "vocabulary_reviewed",
+            "type": "integer",
+            "nullable": true,
+            "default": "0"
+          },
+          {
+            "name": "total_study_time",
+            "type": "integer",
+            "nullable": true,
+            "default": "0"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "nullable": false,
+            "default": "timezone('utc'::text, now())"
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp with time zone",
+            "nullable": false,
+            "default": "timezone('utc'::text, now())"
+          }
+        ],
+        "constraints": [
+          {
+            "name": "progress_stats_pkey",
+            "type": "PRIMARY KEY",
+            "columns": [
+              "id"
+            ]
+          },
+          {
+            "name": "progress_stats_user_id_date_key",
+            "type": "UNIQUE",
+            "columns": [
+              "user_id",
+              "date"
+            ]
+          },
+          {
+            "name": "progress_stats_user_id_fkey",
+            "type": "FOREIGN KEY",
+            "columns": [
+              "user_id"
+            ]
+          },
+          {
+            "name": "2200_32745_1_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32745_2_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32745_3_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32745_8_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_32745_9_not_null",
+            "type": "CHECK",
+            "columns": null
+          }
+        ]
+      },
+      {
+        "type": "table",
+        "name": "analyses",
+        "columns": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "nullable": false,
+            "default": "gen_random_uuid()"
+          },
+          {
+            "name": "recording_id",
+            "type": "uuid",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "items",
+            "type": "jsonb",
+            "nullable": false,
+            "default": "'[]'::jsonb"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "nullable": false,
+            "default": "timezone('utc'::text, now())"
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp with time zone",
+            "nullable": false,
+            "default": "timezone('utc'::text, now())"
+          }
+        ],
+        "constraints": [
+          {
+            "name": "analyses_pkey",
+            "type": "PRIMARY KEY",
+            "columns": [
+              "id"
+            ]
+          },
+          {
+            "name": "analyses_recording_id_fkey",
+            "type": "FOREIGN KEY",
+            "columns": [
+              "recording_id"
+            ]
+          },
+          {
+            "name": "2200_35857_1_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_35857_2_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_35857_3_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_35857_4_not_null",
+            "type": "CHECK",
+            "columns": null
+          },
+          {
+            "name": "2200_35857_5_not_null",
+            "type": "CHECK",
+            "columns": null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "json_agg": [
+      {
+        "type": "policy",
+        "table": "profiles",
+        "name": "Users can view own profile",
+        "cmd": "SELECT",
+        "qual": "(auth.uid() = id)",
+        "with_check": null
+      },
+      {
+        "type": "policy",
+        "table": "profiles",
+        "name": "Users can update own profile",
+        "cmd": "UPDATE",
+        "qual": "(auth.uid() = id)",
+        "with_check": null
+      },
+      {
+        "type": "policy",
+        "table": "recordings",
+        "name": "Users can view own recordings",
+        "cmd": "SELECT",
+        "qual": "(auth.uid() = user_id)",
+        "with_check": null
+      },
+      {
+        "type": "policy",
+        "table": "recordings",
+        "name": "Users can insert own recordings",
+        "cmd": "INSERT",
+        "qual": null,
+        "with_check": "(auth.uid() = user_id)"
+      },
+      {
+        "type": "policy",
+        "table": "recordings",
+        "name": "Users can update own recordings",
+        "cmd": "UPDATE",
+        "qual": "(auth.uid() = user_id)",
+        "with_check": null
+      },
+      {
+        "type": "policy",
+        "table": "recordings",
+        "name": "Users can delete own recordings",
+        "cmd": "DELETE",
+        "qual": "(auth.uid() = user_id)",
+        "with_check": null
+      },
+      {
+        "type": "policy",
+        "table": "vocabulary",
+        "name": "Users can view own vocabulary",
+        "cmd": "SELECT",
+        "qual": "(auth.uid() = user_id)",
+        "with_check": null
+      },
+      {
+        "type": "policy",
+        "table": "vocabulary",
+        "name": "Users can insert own vocabulary",
+        "cmd": "INSERT",
+        "qual": null,
+        "with_check": "(auth.uid() = user_id)"
+      },
+      {
+        "type": "policy",
+        "table": "vocabulary",
+        "name": "Users can update own vocabulary",
+        "cmd": "UPDATE",
+        "qual": "(auth.uid() = user_id)",
+        "with_check": null
+      },
+      {
+        "type": "policy",
+        "table": "vocabulary",
+        "name": "Users can delete own vocabulary",
+        "cmd": "DELETE",
+        "qual": "(auth.uid() = user_id)",
+        "with_check": null
+      },
+      {
+        "type": "policy",
+        "table": "vocabulary_reviews",
+        "name": "Users can view own vocabulary reviews",
+        "cmd": "SELECT",
+        "qual": "(auth.uid() = user_id)",
+        "with_check": null
+      },
+      {
+        "type": "policy",
+        "table": "vocabulary_reviews",
+        "name": "Users can insert own vocabulary reviews",
+        "cmd": "INSERT",
+        "qual": null,
+        "with_check": "(auth.uid() = user_id)"
+      },
+      {
+        "type": "policy",
+        "table": "user_settings",
+        "name": "Users can view own settings",
+        "cmd": "SELECT",
+        "qual": "(auth.uid() = user_id)",
+        "with_check": null
+      },
+      {
+        "type": "policy",
+        "table": "user_settings",
+        "name": "Users can update own settings",
+        "cmd": "UPDATE",
+        "qual": "(auth.uid() = user_id)",
+        "with_check": null
+      },
+      {
+        "type": "policy",
+        "table": "progress_stats",
+        "name": "Users can view own progress stats",
+        "cmd": "SELECT",
+        "qual": "(auth.uid() = user_id)",
+        "with_check": null
+      },
+      {
+        "type": "policy",
+        "table": "progress_stats",
+        "name": "Users can insert own progress stats",
+        "cmd": "INSERT",
+        "qual": null,
+        "with_check": "(auth.uid() = user_id)"
+      },
+      {
+        "type": "policy",
+        "table": "progress_stats",
+        "name": "Users can update own progress stats",
+        "cmd": "UPDATE",
+        "qual": "(auth.uid() = user_id)",
+        "with_check": null
+      },
+      {
+        "type": "policy",
+        "table": "recordings",
+        "name": "Users can insert their own recordings",
+        "cmd": "INSERT",
+        "qual": null,
+        "with_check": "(auth.uid() = user_id)"
+      },
+      {
+        "type": "policy",
+        "table": "recordings",
+        "name": "Users can view their own recordings",
+        "cmd": "SELECT",
+        "qual": "(auth.uid() = user_id)",
+        "with_check": null
+      },
+      {
+        "type": "policy",
+        "table": "recordings",
+        "name": "Users can update their own recordings",
+        "cmd": "UPDATE",
+        "qual": "(auth.uid() = user_id)",
+        "with_check": "(auth.uid() = user_id)"
+      },
+      {
+        "type": "policy",
+        "table": "recordings",
+        "name": "Users can delete their own recordings",
+        "cmd": "DELETE",
+        "qual": "(auth.uid() = user_id)",
+        "with_check": null
+      },
+      {
+        "type": "policy",
+        "table": "analyses",
+        "name": "Users can view own analyses",
+        "cmd": "SELECT",
+        "qual": "(EXISTS ( SELECT 1\n   FROM recordings\n  WHERE ((recordings.id = analyses.recording_id) AND (recordings.user_id = auth.uid()))))",
+        "with_check": null
+      },
+      {
+        "type": "policy",
+        "table": "analyses",
+        "name": "Users can insert own analyses",
+        "cmd": "INSERT",
+        "qual": null,
+        "with_check": "(EXISTS ( SELECT 1\n   FROM recordings\n  WHERE ((recordings.id = analyses.recording_id) AND (recordings.user_id = auth.uid()))))"
+      }
+    ]
+  },
+  {
+    "json_agg": [
+      {
+        "type": "function",
+        "name": "handle_new_user",
+        "definition": "\nbegin\n  -- Create profile record\n  insert into public.profiles (\n    id,\n    email,\n    full_name,\n    avatar_url\n  )\n  values (\n    new.id,\n    new.email,\n    coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),\n    new.raw_user_meta_data->>'avatar_url'\n  );\n  \n  -- Create default user settings\n  insert into public.user_settings (\n    user_id,\n    source_languages,\n    target_language,\n    notification_preferences,\n    theme\n  )\n  values (\n    new.id,\n    array['en'],\n    'hu',\n    '{\"email\": true, \"push\": true}'::jsonb,\n    'light'\n  );\n  \n  return new;\nend;\n"
+      },
+      {
+        "type": "function",
+        "name": "moddatetime",
+        "definition": "\nbegin\n    new.updated_at = timezone('utc', now());\n    return new;\nend;\n"
+      }
+    ]
+  },
+  {
+    "json_agg": [
+      {
+        "type": "trigger",
+        "table": "analyses",
+        "name": "handle_updated_at",
+        "event": "UPDATE",
+        "timing": "BEFORE",
+        "function": "EXECUTE FUNCTION moddatetime('updated_at')"
+      }
+    ]
+  }
+]

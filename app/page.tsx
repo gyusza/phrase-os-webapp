@@ -21,12 +21,12 @@ export default function LandingPage() {
             <Link href="#faq" className="text-sm font-medium hover:text-primary">
               FAQ
             </Link>
-            <Link href="/login" className="text-sm font-medium hover:text-primary">
-              Login
+            <Link href="/auth/login" className="text-sm font-medium hover:text-primary">
+              Sign In
             </Link>
           </nav>
           <Button asChild>
-            <Link href="/signup">Get Started</Link>
+            <Link href="/auth/signup">Get Started</Link>
           </Button>
         </div>
       </header>
@@ -40,7 +40,7 @@ export default function LandingPage() {
               PhraseOS listens, learns, and helps you master the words you actually use every day.
             </p>
             <Button size="lg" asChild className="gap-2">
-              <Link href="/signup">
+              <Link href="/auth/signup">
                 Join the Beta <ArrowRight className="w-4 h-4" />
               </Link>
             </Button>
@@ -203,7 +203,7 @@ export default function LandingPage() {
               Join our beta program today and start building your personalized language learning experience.
             </p>
             <Button size="lg" variant="secondary" asChild>
-              <Link href="/signup">Join the Beta</Link>
+              <Link href="/auth/signup">Join the Beta</Link>
             </Button>
           </div>
         </section>

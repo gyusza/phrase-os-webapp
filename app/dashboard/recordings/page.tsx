@@ -1,65 +1,305 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Mic, Search, Play, Trash, Clock, BarChart2 } from 'lucide-react'
+import { Mic, Search, Play, Trash, Clock, BarChart2, Pencil, Pause } from 'lucide-react'
 import Link from "next/link"
-import DashboardHeader from "@/components/dashboard-header"
+import { useEffect, useState, useRef } from 'react'
+import { createClient } from "@/lib/supabase/client"
+import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 
-// Mock data for recordings
-const recordings = [
-  { id: 1, title: "Morning Routine", duration: "2:45", date: "Today, 8:30 AM", phrases: 12 },
-  { id: 2, title: "Coffee Shop Conversation", duration: "3:20", date: "Yesterday, 2:15 PM", phrases: 18 },
-  { id: 3, title: "Work Meeting", duration: "5:10", date: "Mar 15, 10:00 AM", phrases: 24 },
-  { id: 4, title: "Grocery Shopping", duration: "1:55", date: "Mar 12, 4:30 PM", phrases: 9 },
-  { id: 5, title: "Restaurant Order", duration: "2:30", date: "Mar 10, 7:45 PM", phrases: 15 },
-  { id: 6, title: "Phone Call with Friend", duration: "4:15", date: "Mar 8, 6:20 PM", phrases: 22 },
-  { id: 7, title: "Asking for Directions", duration: "1:40", date: "Mar 5, 3:10 PM", phrases: 8 },
-  { id: 8, title: "Gym Conversation", duration: "2:05", date: "Mar 3, 5:30 PM", phrases: 11 },
-]
+interface Recording {
+  id: string
+  title: string
+  audio_url: string
+  duration: number
+  created_at: string
+  language: string
+  transcription: string | null
+  status: 'new' | 'analyzed'
+  analyses?: { count: number }[]
+}
 
 export default function RecordingsPage() {
+  const [recordings, setRecordings] = useState<Recording[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [isPlaying, setIsPlaying] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState<string | null>(null)
+  const [newTitle, setNewTitle] = useState("")
+  const [isDeleting, setIsDeleting] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<'all' | 'new' | 'analyzed'>('all')
+  const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({})
+  const { toast } = useToast()
+  const router = useRouter()
+  const supabase = createClient()
+  const ITEMS_PER_PAGE = 10
+
+  // Fetch recordings
+  useEffect(() => {
+    fetchRecordings()
+  }, [currentPage, searchQuery, statusFilter])
+
+  const fetchRecordings = async () => {
+    try {
+      setIsLoading(true)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+
+      const { data, error } = await supabase
+        .from('recordings')
+        .select(`
+          *,
+          analyses:analyses(count)
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      // Filter recordings based on status
+      const filteredData = data?.filter((recording: Recording) => {
+        const analysisCount = recording.analyses?.[0]?.count ?? 0;
+        if (statusFilter === 'all') return true;
+        if (statusFilter === 'analyzed') return analysisCount > 0;
+        if (statusFilter === 'new') return analysisCount === 0;
+        return true;
+      });
+
+      setRecordings(filteredData || [])
+    } catch (error) {
+      console.error('Error fetching recordings:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load recordings",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+
+    if (days === 0) {
+      return `Today, ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    } else if (days === 1) {
+      return `Yesterday, ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    } else {
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    }
+  }
+
+  const playRecording = async (recording: Recording) => {
+    try {
+      if (!audioRefs.current[recording.id]) {
+        // Get a fresh download URL for the audio file
+        const storagePath = recording.audio_url
+          .split('/audio/')[1]
+          .replace(/\?.*$/, '')
+
+        const { data, error } = await supabase.storage
+          .from('audio')
+          .createSignedUrl(storagePath, 3600)
+
+        if (error || !data?.signedUrl) {
+          throw new Error('Failed to get audio URL')
+        }
+
+        audioRefs.current[recording.id] = new Audio(data.signedUrl)
+        audioRefs.current[recording.id].onended = () => setIsPlaying(null)
+        audioRefs.current[recording.id].onerror = () => {
+          toast({
+            title: "Error",
+            description: "Failed to play the recording. Please try again.",
+            variant: "destructive",
+          })
+          setIsPlaying(null)
+        }
+      }
+
+      if (isPlaying === recording.id) {
+        audioRefs.current[recording.id].pause()
+      } else {
+        // Stop any currently playing audio
+        if (isPlaying && audioRefs.current[isPlaying]) {
+          audioRefs.current[isPlaying].pause()
+        }
+        await audioRefs.current[recording.id].play()
+      }
+      setIsPlaying(isPlaying === recording.id ? null : recording.id)
+    } catch (error) {
+      console.error('Error playing audio:', error)
+      toast({
+        title: "Error",
+        description: "Failed to play the recording. Please try again.",
+        variant: "destructive",
+      })
+      setIsPlaying(null)
+    }
+  }
+
+  const stopAllPlayback = () => {
+    Object.values(audioRefs.current).forEach(audio => {
+      audio.pause()
+      audio.currentTime = 0
+    })
+    setIsPlaying(null)
+  }
+
+  const handleTitleEdit = async (recording: Recording) => {
+    if (!newTitle.trim()) return
+
+    try {
+      const { error } = await supabase
+        .from('recordings')
+        .update({ title: newTitle.trim() })
+        .eq('id', recording.id)
+
+      if (error) throw error
+
+      setRecordings(recordings.map(r => 
+        r.id === recording.id ? { ...r, title: newTitle.trim() } : r
+      ))
+      setEditingTitle(null)
+      toast({
+        title: "Success",
+        description: "Recording title updated successfully.",
+      })
+    } catch (error) {
+      console.error('Error updating title:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update title. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDelete = async (recording: Recording) => {
+    try {
+      setIsDeleting(recording.id)
+      
+      // Delete the audio file from storage
+      const storagePath = recording.audio_url
+        .split('/audio/')[1]
+        .replace(/\?.*$/, '')
+      
+      const { error: storageError } = await supabase.storage
+        .from('audio')
+        .remove([storagePath])
+
+      if (storageError) throw storageError
+
+      // Delete the database record
+      const { error: dbError } = await supabase
+        .from('recordings')
+        .delete()
+        .eq('id', recording.id)
+
+      if (dbError) throw dbError
+
+      setRecordings(recordings.filter(r => r.id !== recording.id))
+      toast({
+        title: "Success",
+        description: "Recording deleted successfully.",
+      })
+    } catch (error) {
+      console.error('Error deleting recording:', error)
+      toast({
+        title: "Error",
+        description: "Failed to delete recording. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(null)
+    }
+  }
+
+  const handleAnalyze = (recording: Recording) => {
+    router.push(`/dashboard/recordings/${recording.id}/analyze`)
+  }
+
   return (
-    <div className="flex min-h-screen flex-col">
-      <DashboardHeader />
-
-      <main className="flex-1 container py-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Recordings</h1>
-            <p className="text-muted-foreground">Manage your speech recordings and extracted phrases.</p>
-          </div>
-          <Button asChild>
-            <Link href="/dashboard/record" className="flex items-center gap-2">
-              <Mic className="w-4 h-4" />
-              New Recording
-            </Link>
-          </Button>
+    <main className="flex-1 container py-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Recordings</h1>
+          <p className="text-muted-foreground">Manage your speech recordings and extracted phrases.</p>
         </div>
+        <Button asChild>
+          <Link href="/dashboard/record" className="flex items-center gap-2">
+            <Mic className="w-4 h-4" />
+            New Recording
+          </Link>
+        </Button>
+      </div>
 
-        <div className="grid gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Your Recordings</CardTitle>
-              <CardDescription>Browse and manage your recorded speech samples.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input type="search" placeholder="Search recordings..." className="pl-8" />
-                </div>
-                <Tabs defaultValue="all" className="w-full sm:w-auto">
-                  <TabsList className="w-full grid grid-cols-3 sm:w-auto">
-                    <TabsTrigger value="all">All</TabsTrigger>
-                    <TabsTrigger value="recent">Recent</TabsTrigger>
-                    <TabsTrigger value="analyzed">Analyzed</TabsTrigger>
-                  </TabsList>
-                </Tabs>
+      <div className="grid gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Your Recordings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  type="search" 
+                  placeholder="Search recordings..." 
+                  className="pl-8"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                />
               </div>
+              <Tabs 
+                defaultValue="all" 
+                className="w-full sm:w-auto"
+                value={statusFilter}
+                onValueChange={(value) => {
+                  setStatusFilter(value as 'all' | 'new' | 'analyzed')
+                  setCurrentPage(1)
+                }}
+              >
+                <TabsList className="w-full grid grid-cols-3 sm:w-auto">
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="new">New</TabsTrigger>
+                  <TabsTrigger value="analyzed">Analyzed</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
 
-              <div className="space-y-4">
-                {recordings.map((recording) => (
+            <div className="space-y-4">
+              {isLoading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Loading recordings...
+                </div>
+              ) : recordings.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No recordings found. Start by creating a new recording!
+                </div>
+              ) : (
+                recordings.map((recording) => (
                   <Card key={recording.id}>
                     <CardContent className="p-4">
                       <div className="flex items-center gap-4">
@@ -67,36 +307,172 @@ export default function RecordingsPage() {
                           <Mic className="h-6 w-6 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-medium truncate">{recording.title}</h3>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          {editingTitle === recording.id ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={newTitle}
+                                onChange={(e) => setNewTitle(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleTitleEdit(recording)
+                                  }
+                                }}
+                              />
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleTitleEdit(recording)}
+                              >
+                                Save
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingTitle(null)
+                                  setNewTitle("")
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-medium truncate">{recording.title}</h3>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => {
+                                  setEditingTitle(recording.id)
+                                  setNewTitle(recording.title)
+                                }}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                             <div className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
-                              <span>{recording.duration}</span>
+                              <span>{formatTime(recording.duration)}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <BarChart2 className="h-3 w-3" />
-                              <span>{recording.phrases} phrases</span>
+                              <span>{recording.language === 'en' ? 'English' : 
+                                     recording.language === 'hu' ? 'Hungarian' : 
+                                     recording.language === 'da' ? 'Danish' : 'German'}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                (recording.analyses?.[0]?.count ?? 0) > 0
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {(recording.analyses?.[0]?.count ?? 0) > 0 ? 'Analyzed' : 'New'}
+                              </span>
                             </div>
                           </div>
-                          <div className="text-xs text-muted-foreground mt-1">{recording.date}</div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {formatDate(recording.created_at)}
+                          </div>
+                          {recording.transcription && (
+                            <div className="mt-2 text-sm text-muted-foreground line-clamp-2">
+                              {recording.transcription}
+                            </div>
+                          )}
                         </div>
                         <div className="flex gap-2">
-                          <Button variant="ghost" size="icon">
-                            <Play className="h-4 w-4" />
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => playRecording(recording)}
+                          >
+                            {isPlaying === recording.id ? (
+                              <Pause className="h-4 w-4" />
+                            ) : (
+                              <Play className="h-4 w-4" />
+                            )}
                           </Button>
-                          <Button variant="ghost" size="icon">
-                            <Trash className="h-4 w-4" />
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleAnalyze(recording)}
+                          >
+                            <BarChart2 className="h-4 w-4" />
                           </Button>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                disabled={isDeleting === recording.id}
+                              >
+                                <Trash className="h-4 w-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Delete Recording</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <p>Are you sure you want to delete this recording? This action cannot be undone.</p>
+                                <div className="flex justify-end gap-2">
+                                  <Button 
+                                    variant="outline" 
+                                    onClick={() => {
+                                      const dialog = document.querySelector('[role="dialog"]') as HTMLDialogElement;
+                                      dialog?.close();
+                                    }}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button 
+                                    variant="destructive"
+                                    onClick={() => {
+                                      handleDelete(recording)
+                                      const dialog = document.querySelector('[role="dialog"]') as HTMLDialogElement;
+                                      dialog?.close();
+                                    }}
+                                    disabled={isDeleting === recording.id}
+                                  >
+                                    {isDeleting === recording.id ? "Deleting..." : "Delete"}
+                                  </Button>
+                                </div>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                ))
+              )}
+            </div>
+
+            {!isLoading && recordings.length > 0 && (
+              <div className="flex justify-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
-    </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </main>
   )
 }

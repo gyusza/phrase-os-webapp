@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -14,10 +15,13 @@ import { Mic, BookOpen, BarChart2, Settings, User, LogOut, Menu } from 'lucide-r
 import { usePathname } from "next/navigation"
 import { useState } from "react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { createClient } from "@/lib/supabase/client"
 
 export default function DashboardHeader() {
   const pathname = usePathname()
+  const router = useRouter()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const supabase = createClient()
   
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: BarChart2 },
@@ -25,12 +29,23 @@ export default function DashboardHeader() {
     { name: "Vocabulary", href: "/dashboard/vocabulary", icon: BookOpen },
     { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ]
+
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      router.push("/auth/login")
+      router.refresh()
+    } catch (error) {
+      console.error("Error logging out:", error)
+    }
+  }
   
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Link href="/dashboard" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <Mic className="h-5 w-5 text-primary" />
             <span className="font-bold">PhraseOS</span>
           </Link>
@@ -67,11 +82,20 @@ export default function DashboardHeader() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuItem>Subscription</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/settings#profile">Profile</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/settings#languages">Languages</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/settings#notifications">Notifications</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/settings#subscription">Subscription</Link>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Log out
               </DropdownMenuItem>

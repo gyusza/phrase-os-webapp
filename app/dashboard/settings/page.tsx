@@ -1,7 +1,7 @@
 "use client"
 
 import { Badge } from "@/components/ui/badge"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,399 +11,398 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { User, Globe, Bell, CreditCard } from 'lucide-react'
-import DashboardHeader from "@/components/dashboard-header"
 import { useToast } from "@/hooks/use-toast"
+import { createClient } from "@/lib/supabase/client"
+
+interface Profile {
+  id: string
+  email: string
+  full_name: string
+  avatar_url: string
+}
+
+interface UserSettings {
+  source_languages: string[]
+  target_language: string
+  notification_preferences: {
+    email: boolean
+    push: boolean
+  }
+  theme: string
+}
 
 export default function SettingsPage() {
-  const [emailNotifications, setEmailNotifications] = useState(true)
-  const [pushNotifications, setPushNotifications] = useState(true)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [settings, setSettings] = useState<UserSettings | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
   const { toast } = useToast()
+  const supabase = createClient()
 
-  const handleSaveProfile = () => {
+  useEffect(() => {
+    fetchProfileAndSettings()
+  }, [])
+
+  const fetchProfileAndSettings = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('No user found')
+
+      // Fetch profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+      if (profileError) throw profileError
+      setProfile(profileData)
+
+      // Fetch settings
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .single()
+
+      if (settingsError) throw settingsError
+      setSettings(settingsData)
+    } catch (error) {
+      console.error('Error fetching profile and settings:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load profile and settings.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSaveProfile = async () => {
+    if (!profile) return
+
+    setIsSaving(true)
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: profile.full_name,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', profile.id)
+
+      if (error) throw error
+
     toast({
       title: "Profile updated",
       description: "Your profile information has been saved.",
     })
+    } catch (error) {
+      console.error('Error updating profile:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update profile.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const handleSaveLanguage = () => {
+  const handleSaveLanguage = async () => {
+    if (!settings) return
+
+    setIsSaving(true)
+    try {
+      const { error } = await supabase
+        .from('user_settings')
+        .update({
+          source_languages: settings.source_languages,
+          target_language: settings.target_language,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', settings.user_id)
+
+      if (error) throw error
+
     toast({
       title: "Language settings updated",
       description: "Your language preferences have been saved.",
     })
+    } catch (error) {
+      console.error('Error updating language settings:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update language settings.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const handleSaveNotifications = () => {
+  const handleSaveNotifications = async () => {
+    if (!settings) return
+
+    setIsSaving(true)
+    try {
+      const { error } = await supabase
+        .from('user_settings')
+        .update({
+          notification_preferences: settings.notification_preferences,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', settings.user_id)
+
+      if (error) throw error
+
     toast({
       title: "Notification settings updated",
       description: "Your notification preferences have been saved.",
     })
+    } catch (error) {
+      console.error('Error updating notification settings:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update notification settings.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <main className="flex-1 container py-6">
+          <div>Loading...</div>
+        </main>
+      </div>
+    )
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <DashboardHeader />
-
-      <main className="flex-1 container py-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-            <p className="text-muted-foreground">Manage your account settings and preferences.</p>
-          </div>
+    <main className="flex-1 container py-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+          <p className="text-muted-foreground">Manage your account settings and preferences.</p>
         </div>
+      </div>
 
-        <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid grid-cols-4 w-full max-w-md">
-            <TabsTrigger value="profile" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              <span className="hidden sm:inline">Profile</span>
-            </TabsTrigger>
-            <TabsTrigger value="language" className="flex items-center gap-2">
-              <Globe className="h-4 w-4" />
-              <span className="hidden sm:inline">Language</span>
-            </TabsTrigger>
-            <TabsTrigger value="notifications" className="flex items-center gap-2">
-              <Bell className="h-4 w-4" />
-              <span className="hidden sm:inline">Notifications</span>
-            </TabsTrigger>
-            <TabsTrigger value="subscription" className="flex items-center gap-2">
-              <CreditCard className="h-4 w-4" />
-              <span className="hidden sm:inline">Subscription</span>
-            </TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="profile" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4 gap-2">
+          <TabsTrigger value="profile" className="flex items-center gap-2" id="profile">
+            <User className="h-4 w-4" />
+            <span className="hidden sm:inline">Profile</span>
+          </TabsTrigger>
+          <TabsTrigger value="languages" className="flex items-center gap-2" id="languages">
+            <Globe className="h-4 w-4" />
+            <span className="hidden sm:inline">Languages</span>
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="flex items-center gap-2 opacity-50 cursor-not-allowed" disabled>
+            <Bell className="h-4 w-4" />
+            <span className="hidden sm:inline">Notifications (Coming Soon)</span>
+          </TabsTrigger>
+          <TabsTrigger value="subscription" className="flex items-center gap-2 opacity-50 cursor-not-allowed" disabled>
+            <CreditCard className="h-4 w-4" />
+            <span className="hidden sm:inline">Subscription (Coming Soon)</span>
+          </TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="profile">
-            <Card>
-              <CardHeader>
-                <CardTitle>Profile</CardTitle>
-                <CardDescription>Manage your personal information and account settings.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="first-name">First name</Label>
-                      <Input id="first-name" defaultValue="John" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="last-name">Last name</Label>
-                      <Input id="last-name" defaultValue="Doe" />
-                    </div>
-                  </div>
+        <TabsContent value="profile">
+          <Card>
+            <CardHeader>
+              <CardTitle>Profile</CardTitle>
+              <CardDescription>Manage your personal information and account settings.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" defaultValue="john.doe@example.com" />
-                  </div>
+                  <Label htmlFor="full-name">Full name</Label>
+                  <Input 
+                    id="full-name" 
+                    value={profile?.full_name || ''}
+                    onChange={(e) => setProfile(prev => prev ? { ...prev, full_name: e.target.value } : null)}
+                  />
                 </div>
-
-                <Separator />
-
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Password</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="current-password">Current password</Label>
-                      <Input id="current-password" type="password" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="new-password">New password</Label>
-                      <Input id="new-password" type="password" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="confirm-password">Confirm password</Label>
-                      <Input id="confirm-password" type="password" />
-                    </div>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    value={profile?.email || ''}
+                    disabled
+                  />
                 </div>
-              </CardContent>
-              <CardFooter>
-                <Button onClick={handleSaveProfile}>Save changes</Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="language">
-            <Card>
-              <CardHeader>
-                <CardTitle>Language Settings</CardTitle>
-                <CardDescription>Configure your language learning preferences.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="native-language">Native language</Label>
-                      <Select defaultValue="danish">
-                        <SelectTrigger id="native-language">
-                          <SelectValue placeholder="Select language" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="danish">Danish</SelectItem>
-                          <SelectItem value="english">English</SelectItem>
-                          <SelectItem value="spanish">Spanish</SelectItem>
-                          <SelectItem value="french">French</SelectItem>
-                          <SelectItem value="german">German</SelectItem>
-                          <SelectItem value="italian">Italian</SelectItem>
-                          <SelectItem value="japanese">Japanese</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="target-language">Target language</Label>
-                      <Select defaultValue="danish">
-                        <SelectTrigger id="target-language">
-                          <SelectValue placeholder="Select language" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="danish">Danish</SelectItem>
-                          <SelectItem value="english">English</SelectItem>
-                          <SelectItem value="spanish">Spanish</SelectItem>
-                          <SelectItem value="french">French</SelectItem>
-                          <SelectItem value="german">German</SelectItem>
-                          <SelectItem value="italian">Italian</SelectItem>
-                          <SelectItem value="japanese">Japanese</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Learning Preferences</h3>
                   <div className="space-y-2">
-                    <Label htmlFor="difficulty">Difficulty level</Label>
-                    <Select defaultValue="intermediate">
-                      <SelectTrigger id="difficulty">
-                        <SelectValue placeholder="Select difficulty" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="beginner">Beginner</SelectItem>
-                        <SelectItem value="intermediate">Intermediate</SelectItem>
-                        <SelectItem value="advanced">Advanced</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <Label htmlFor="avatar-url">Avatar URL</Label>
+                  <Input 
+                    id="avatar-url" 
+                    value={profile?.avatar_url || ''}
+                    onChange={(e) => setProfile(prev => prev ? { ...prev, avatar_url: e.target.value } : null)}
+                  />
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button onClick={handleSaveProfile} disabled={isSaving}>
+                {isSaving ? "Saving..." : "Save changes"}
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="languages">
+          <Card>
+            <CardHeader>
+              <CardTitle>Language Settings</CardTitle>
+              <CardDescription>Configure your language learning preferences.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="focus-areas">Focus areas</Label>
-                    <Select defaultValue="conversation">
-                      <SelectTrigger id="focus-areas">
-                        <SelectValue placeholder="Select focus" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="conversation">Conversation</SelectItem>
-                        <SelectItem value="business">Business</SelectItem>
-                        <SelectItem value="travel">Travel</SelectItem>
-                        <SelectItem value="academic">Academic</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <Label htmlFor="source-languages">Source Languages (Select up to 2)</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {['en', 'hu', 'da', 'de'].map((lang) => (
+                      <Button
+                        key={lang}
+                        variant={settings?.source_languages?.includes(lang) ? "default" : "outline"}
+                        onClick={() => {
+                          const current = settings?.source_languages || []
+                          const newSelection = current.includes(lang)
+                            ? current.filter(l => l !== lang)
+                            : current.length < 2
+                              ? [...current, lang]
+                              : current
+                          setSettings(prev => prev ? { ...prev, source_languages: newSelection } : null)
+                        }}
+                      >
+                        {lang === 'en' ? 'English' : 
+                         lang === 'hu' ? 'Hungarian' : 
+                         lang === 'da' ? 'Danish' : 'German'}
+                      </Button>
+                    ))}
                   </div>
                 </div>
-              </CardContent>
-              <CardFooter>
-                <Button onClick={handleSaveLanguage}>Save changes</Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="notifications">
-            <Card>
-              <CardHeader>
-                <CardTitle>Notification Settings</CardTitle>
-                <CardDescription>Configure how and when you receive notifications.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Email Notifications</h3>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="email-notifications">Daily reminders</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Receive daily reminders to practice your language skills.
-                      </p>
-                    </div>
-                    <Switch
-                      id="email-notifications"
-                      checked={emailNotifications}
-                      onCheckedChange={setEmailNotifications}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="email-updates">Weekly progress reports</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Receive weekly summaries of your learning progress.
-                      </p>
-                    </div>
-                    <Switch id="email-updates" defaultChecked />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="target-language">Target Language</Label>
+                  <Select 
+                    value={settings?.target_language || 'en'}
+                    onValueChange={(value) => setSettings(prev => prev ? { ...prev, target_language: value } : null)}
+                  >
+                    <SelectTrigger id="target-language">
+                      <SelectValue placeholder="Select language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="hu">Hungarian</SelectItem>
+                      <SelectItem value="da">Danish</SelectItem>
+                      <SelectItem value="de">German</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button onClick={handleSaveLanguage} disabled={isSaving}>
+                {isSaving ? "Saving..." : "Save changes"}
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
 
-                <Separator />
-
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Push Notifications</h3>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="push-notifications">Practice reminders</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Receive push notifications to remind you to practice.
-                      </p>
-                    </div>
-                    <Switch
-                      id="push-notifications"
-                      checked={pushNotifications}
-                      onCheckedChange={setPushNotifications}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="achievement-notifications">Achievement alerts</Label>
-                      <p className="text-sm text-muted-foreground">Get notified when you reach learning milestones.</p>
-                    </div>
-                    <Switch id="achievement-notifications" defaultChecked />
-                  </div>
+        <TabsContent value="notifications">
+          <Card>
+            <CardHeader>
+              <CardTitle>Notifications</CardTitle>
+              <CardDescription>Manage your notification preferences.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between space-x-2">
+                  <Label htmlFor="email-notifications" className="flex flex-col space-y-1">
+                    <span>Email notifications</span>
+                    <span className="font-normal text-sm text-muted-foreground">
+                      Receive email updates about your progress and new features.
+                    </span>
+                  </Label>
+                  <Switch
+                    id="email-notifications"
+                    checked={settings?.notification_preferences?.email || false}
+                    onCheckedChange={(checked) => setSettings(prev => prev ? {
+                      ...prev,
+                      notification_preferences: {
+                        ...prev.notification_preferences,
+                        email: checked
+                      }
+                    } : null)}
+                  />
                 </div>
-              </CardContent>
-              <CardFooter>
-                <Button onClick={handleSaveNotifications}>Save changes</Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="subscription">
-            <Card>
-              <CardHeader>
-                <CardTitle>Subscription</CardTitle>
-                <CardDescription>Manage your subscription plan and billing information.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="rounded-lg border p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-medium">Free Plan</h3>
-                      <p className="text-sm text-muted-foreground">You are currently on the free plan.</p>
-                    </div>
-                    <Badge variant="outline" className="bg-primary/10 text-primary">
-                      Active
-                    </Badge>
-                  </div>
-                  <div className="mt-4 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-primary" />
-                      <span className="text-sm">Basic recording analysis</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-primary" />
-                      <span className="text-sm">Up to 10 recordings per month</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-primary" />
-                      <span className="text-sm">Limited vocabulary tracking</span>
-                    </div>
-                  </div>
+                <div className="flex items-center justify-between space-x-2">
+                  <Label htmlFor="push-notifications" className="flex flex-col space-y-1">
+                    <span>Push notifications</span>
+                    <span className="font-normal text-sm text-muted-foreground">
+                      Receive push notifications for daily reminders and achievements.
+                    </span>
+                  </Label>
+                  <Switch
+                    id="push-notifications"
+                    checked={settings?.notification_preferences?.push || false}
+                    onCheckedChange={(checked) => setSettings(prev => prev ? {
+                      ...prev,
+                      notification_preferences: {
+                        ...prev.notification_preferences,
+                        push: checked
+                      }
+                    } : null)}
+                  />
                 </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button onClick={handleSaveNotifications} disabled={isSaving}>
+                {isSaving ? "Saving..." : "Save changes"}
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
 
-                <div className="rounded-lg border p-4 bg-muted/50">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-medium">Premium Plan</h3>
-                      <p className="text-sm text-muted-foreground">Upgrade to unlock all features.</p>
-                    </div>
-                    <div className="text-lg font-bold">
-                      $9.99<span className="text-sm font-normal text-muted-foreground">/month</span>
-                    </div>
+        <TabsContent value="subscription">
+          <Card>
+            <CardHeader>
+              <CardTitle>Subscription</CardTitle>
+              <CardDescription>Manage your subscription and billing information.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Current Plan</h3>
+                    <p className="text-sm text-muted-foreground">Free Plan</p>
                   </div>
-                  <div className="mt-4 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-primary" />
-                      <span className="text-sm">Advanced speech analysis</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-primary" />
-                      <span className="text-sm">Unlimited recordings</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-primary" />
-                      <span className="text-sm">Comprehensive vocabulary tracking</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-primary" />
-                      <span className="text-sm">Priority customer support</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-primary" />
-                      <span className="text-sm">No advertisements</span>
-                    </div>
-                  </div>
-                  <Button className="mt-4 w-full">Upgrade to Premium</Button>
+                  <Badge variant="secondary">Active</Badge>
                 </div>
-
-                <Separator />
-
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Billing Information</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Add your payment information to upgrade to a premium plan.
-                  </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="card-name">Name on card</Label>
-                      <Input id="card-name" placeholder="John Doe" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="card-number">Card number</Label>
-                      <Input id="card-number" placeholder="1234 5678 9012 3456" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="expiry-month">Expiry month</Label>
-                      <Select>
-                        <SelectTrigger id="expiry-month">
-                          <SelectValue placeholder="Month" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 12 }, (_, i) => (
-                            <SelectItem key={i} value={`${i + 1}`}>
-                              {(i + 1).toString().padStart(2, "0")}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="expiry-year">Expiry year</Label>
-                      <Select>
-                        <SelectTrigger id="expiry-year">
-                          <SelectValue placeholder="Year" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 10 }, (_, i) => (
-                            <SelectItem key={i} value={`${new Date().getFullYear() + i}`}>
-                              {new Date().getFullYear() + i}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cvc">CVC</Label>
-                      <Input id="cvc" placeholder="123" />
+              <Separator />
+              <div className="space-y-4">
+                  <h3 className="font-medium">Available Plans</h3>
+                  <div className="grid gap-4">
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <h4 className="font-medium">Pro Plan</h4>
+                        <p className="text-sm text-muted-foreground">$9.99/month</p>
+                      </div>
+                      <Button variant="outline">Upgrade</Button>
                     </div>
                   </div>
                 </div>
-              </CardContent>
-              <CardFooter>
-                <Button>Save payment information</Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </main>
-    </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </main>
   )
 }
