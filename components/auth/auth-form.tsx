@@ -20,6 +20,7 @@ export function AuthForm({ type }: AuthFormProps) {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    console.log("AuthForm mounted")
     setMounted(true)
     return () => setMounted(false)
   }, [])
@@ -34,10 +35,15 @@ export function AuthForm({ type }: AuthFormProps) {
   const handleGoogleSignIn = useCallback(async () => {
     if (!mounted) return
     try {
+      console.log("Starting Google sign in process...")
       setIsLoading(true)
       setError(null)
+      
+      console.log("Creating Supabase client...")
       const supabase = createClient()
+      console.log("Supabase client created successfully")
 
+      console.log("Initiating OAuth flow...")
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -45,13 +51,18 @@ export function AuthForm({ type }: AuthFormProps) {
         },
       })
 
-      if (error) throw error
+      if (error) {
+        console.error("OAuth error:", error)
+        throw error
+      }
 
+      console.log("OAuth flow initiated successfully")
       toast({
         title: "Success",
         description: "Redirecting to Google...",
       })
     } catch (error) {
+      console.error("Error in handleGoogleSignIn:", error)
       handleError(error as Error)
     }
   }, [mounted, handleError, toast])
