@@ -19,6 +19,7 @@ interface RecordingDetails {
   transcription: string
   duration: number
   language: string
+  status: 'new' | 'analyzed'
 }
 
 export default function RecordInterface({ sourceLanguages, targetLanguage }: RecordInterfaceProps) {
@@ -165,6 +166,7 @@ export default function RecordInterface({ sourceLanguages, targetLanguage }: Rec
           language: detectedLanguage,
           duration: finalDuration,
           transcription,
+          status: 'new',
           metadata: {
             source_languages: sourceLanguages,
             target_language: targetLanguage,

@@ -193,7 +193,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid grid-cols-4 w-full max-w-md">
+        <TabsList className="grid w-full grid-cols-4 gap-2">
           <TabsTrigger value="profile" className="flex items-center gap-2" id="profile">
             <User className="h-4 w-4" />
             <span className="hidden sm:inline">Profile</span>
@@ -202,13 +202,13 @@ export default function SettingsPage() {
             <Globe className="h-4 w-4" />
             <span className="hidden sm:inline">Languages</span>
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2" id="notifications">
+          <TabsTrigger value="notifications" className="flex items-center gap-2 opacity-50 cursor-not-allowed" disabled>
             <Bell className="h-4 w-4" />
-            <span className="hidden sm:inline">Notifications</span>
+            <span className="hidden sm:inline">Notifications (Coming Soon)</span>
           </TabsTrigger>
-          <TabsTrigger value="subscription" className="flex items-center gap-2" id="subscription">
+          <TabsTrigger value="subscription" className="flex items-center gap-2 opacity-50 cursor-not-allowed" disabled>
             <CreditCard className="h-4 w-4" />
-            <span className="hidden sm:inline">Subscription</span>
+            <span className="hidden sm:inline">Subscription (Coming Soon)</span>
           </TabsTrigger>
         </TabsList>
 

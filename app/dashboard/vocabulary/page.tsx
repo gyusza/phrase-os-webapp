@@ -69,7 +69,6 @@ export default function VocabularyPage() {
         <Card>
           <CardHeader>
             <CardTitle>Your Vocabulary</CardTitle>
-            <CardDescription>These are the phrases you use most frequently in your recordings.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex flex-col sm:flex-row gap-4">
