@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Mic, Search, Play, Trash, Clock, BarChart2, Pencil, Pause } from 'lucide-react'
 import Link from "next/link"
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
@@ -42,12 +42,7 @@ export default function RecordingsPage() {
   const supabase = createClient()
   const ITEMS_PER_PAGE = 10
 
-  // Fetch recordings
-  useEffect(() => {
-    fetchRecordings()
-  }, [currentPage, searchQuery, statusFilter])
-
-  const fetchRecordings = async () => {
+  const fetchRecordings = useCallback(async () => {
     try {
       setIsLoading(true)
       const { data: { user } } = await supabase.auth.getUser()
@@ -84,7 +79,11 @@ export default function RecordingsPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [supabase, toast, statusFilter])
+
+  useEffect(() => {
+    fetchRecordings()
+  }, [fetchRecordings, currentPage, searchQuery, statusFilter])
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)

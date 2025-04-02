@@ -8,7 +8,7 @@ import Link from "next/link"
 import RecentRecordings from "@/components/recent-recordings"
 import RecentVocabulary from "@/components/recent-vocabulary"
 import ProgressStats from "@/components/progress-stats"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 
@@ -19,12 +19,7 @@ export default function DashboardPage() {
   const { toast } = useToast()
   const supabase = createClient()
 
-  useEffect(() => {
-    fetchTotalRecordings()
-    fetchTotalVocabulary()
-  }, [])
-
-  const fetchTotalRecordings = async () => {
+  const fetchTotalRecordings = useCallback(async () => {
     try {
       setIsLoading(true)
       const { data: { user } } = await supabase.auth.getUser()
@@ -48,9 +43,9 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [supabase, toast])
 
-  const fetchTotalVocabulary = async () => {
+  const fetchTotalVocabulary = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('No user found')
@@ -71,7 +66,12 @@ export default function DashboardPage() {
         variant: "destructive",
       })
     }
-  }
+  }, [supabase, toast])
+
+  useEffect(() => {
+    fetchTotalRecordings()
+    fetchTotalVocabulary()
+  }, [fetchTotalRecordings, fetchTotalVocabulary])
 
   return (
     <main className="flex-1 py-6">

@@ -1,7 +1,7 @@
 "use client"
 
 import { Badge } from "@/components/ui/badge"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -22,6 +22,7 @@ interface Profile {
 }
 
 interface UserSettings {
+  user_id: string
   source_languages: string[]
   target_language: string
   notification_preferences: {
@@ -29,6 +30,9 @@ interface UserSettings {
     push: boolean
   }
   theme: string
+  daily_vocabulary_goal?: number
+  created_at?: string
+  updated_at?: string
 }
 
 export default function SettingsPage() {
@@ -39,16 +43,13 @@ export default function SettingsPage() {
   const { toast } = useToast()
   const supabase = createClient()
 
-  useEffect(() => {
-    fetchProfileAndSettings()
-  }, [])
-
-  const fetchProfileAndSettings = async () => {
+  const fetchProfileAndSettings = useCallback(async () => {
     try {
+      setIsLoading(true)
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('No user found')
+      if (!user) throw new Error('Not authenticated')
 
-      // Fetch profile
+      // Fetch profile data
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -58,26 +59,31 @@ export default function SettingsPage() {
       if (profileError) throw profileError
       setProfile(profileData)
 
-      // Fetch settings
+      // Fetch settings data
       const { data: settingsData, error: settingsError } = await supabase
         .from('user_settings')
         .select('*')
         .eq('user_id', user.id)
         .single()
 
-      if (settingsError) throw settingsError
-      setSettings(settingsData)
+      if (settingsError && settingsError.code !== 'PGRST116') throw settingsError
+      setSettings(settingsData || null)
+
     } catch (error) {
       console.error('Error fetching profile and settings:', error)
       toast({
         title: "Error",
-        description: "Failed to load profile and settings.",
+        description: "Failed to load profile and settings",
         variant: "destructive",
       })
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [supabase, toast])
+
+  useEffect(() => {
+    fetchProfileAndSettings()
+  }, [fetchProfileAndSettings])
 
   const handleSaveProfile = async () => {
     if (!profile) return

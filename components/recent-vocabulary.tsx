@@ -4,9 +4,10 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Volume2 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
+import Image from "next/image"
 
 interface VocabularyItem {
   id: string
@@ -25,11 +26,7 @@ export default function RecentVocabulary() {
   const { toast } = useToast()
   const supabase = createClient()
 
-  useEffect(() => {
-    fetchVocabulary()
-  }, [])
-
-  const fetchVocabulary = async () => {
+  const fetchVocabulary = useCallback(async () => {
     try {
       setIsLoading(true)
       const { data: { user } } = await supabase.auth.getUser()
@@ -55,7 +52,11 @@ export default function RecentVocabulary() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [supabase, toast])
+
+  useEffect(() => {
+    fetchVocabulary()
+  }, [fetchVocabulary])
 
   const playAudio = (text: string, language: string) => {
     const utterance = new SpeechSynthesisUtterance(text)
@@ -124,10 +125,12 @@ export default function RecentVocabulary() {
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1.5">
                     <span className="font-medium">{item.word}</span>
-                    <img 
+                    <Image 
                       src={`https://flagcdn.com/16x12/${getFlagCode(item.language)}.png`}
                       alt={getLanguageName(item.language)}
-                      className="h-3"
+                      width={16}
+                      height={12}
+                      className="h-3 w-4"
                     />
                     <Button
                       variant="ghost"
@@ -141,10 +144,12 @@ export default function RecentVocabulary() {
                   <span className="text-muted-foreground">→</span>
                   <div className="flex items-center gap-1.5">
                     <span className="font-bold">{item.translation}</span>
-                    <img 
+                    <Image 
                       src={`https://flagcdn.com/16x12/${getFlagCode(item.target_language)}.png`}
                       alt={getLanguageName(item.target_language)}
-                      className="h-3"
+                      width={16}
+                      height={12}
+                      className="h-3 w-4"
                     />
                     <Button
                       variant="ghost"
