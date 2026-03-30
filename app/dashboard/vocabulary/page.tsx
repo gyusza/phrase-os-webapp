@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/client"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import Image from "next/image"
 import {
   Tooltip,
   TooltipContent,
@@ -81,12 +82,10 @@ export default function VocabularyPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
   const supabase = createClient()
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetchVocabulary()
-  }, [])
-
-  const fetchVocabulary = async () => {
+  const fetchVocabulary = useCallback(async () => {
     try {
       setIsLoading(true)
       const { data: { user } } = await supabase.auth.getUser()
@@ -111,7 +110,11 @@ export default function VocabularyPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [supabase, toast])
+
+  useEffect(() => {
+    fetchVocabulary()
+  }, [fetchVocabulary])
 
   const handleEdit = (item: VocabularyItem) => {
     setEditingItem(item)
@@ -202,9 +205,10 @@ export default function VocabularyPage() {
   const uniqueCategories = Array.from(new Set(vocabulary.map((item) => item.metadata?.category || 'uncategorized')))
   const categories = ["all", ...uniqueCategories]
 
-  const deleteVocabularyItem = async (id: string) => {
+  const handleDelete = async (id: string) => {
     try {
       setIsDeleting(id)
+      
       const { error } = await supabase
         .from('vocabulary')
         .delete()
@@ -212,20 +216,22 @@ export default function VocabularyPage() {
 
       if (error) throw error
 
-      setVocabulary(vocabulary.filter((item) => item.id !== id))
+      setVocabulary(vocabulary.filter(item => item.id !== id))
+      setIsDeleteDialogOpen(false)
       toast({
         title: "Success",
         description: "Vocabulary item has been removed.",
       })
     } catch (error) {
       console.error('Error deleting vocabulary item:', error)
-      toast({
+    toast({
         title: "Error",
         description: "Failed to delete vocabulary item",
         variant: "destructive",
       })
     } finally {
       setIsDeleting(null)
+      setItemToDelete(null)
     }
   }
 
@@ -279,11 +285,11 @@ export default function VocabularyPage() {
       })
     } catch (error) {
       console.error('Error adding vocabulary item:', error)
-      toast({
+    toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to add vocabulary item",
         variant: "destructive",
-      })
+    })
     } finally {
       setIsSubmitting(false)
     }
@@ -298,10 +304,10 @@ export default function VocabularyPage() {
         </div>
         <Dialog open={isAddingPhrase} onOpenChange={setIsAddingPhrase}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add Phrase
-            </Button>
+        <Button className="gap-2">
+          <Plus className="h-4 w-4" />
+          Add Phrase
+        </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -459,10 +465,12 @@ export default function VocabularyPage() {
                           <div className="flex items-center gap-2 min-w-[200px]">
                             <div className="flex items-center gap-1.5">
                               <span className="font-medium">{item.word}</span>
-                              <img 
+                              <Image 
                                 src={`https://flagcdn.com/16x12/${getFlagCode(item.language)}.png`}
                                 alt={getLanguageName(item.language)}
-                                className="h-3"
+                                width={16}
+                                height={12}
+                                className="h-3 w-4"
                               />
                               <Button
                                 variant="ghost"
@@ -476,10 +484,12 @@ export default function VocabularyPage() {
                             <span className="text-muted-foreground">→</span>
                             <div className="flex items-center gap-1.5">
                               <span className="font-bold">{item.translation}</span>
-                              <img 
+                              <Image 
                                 src={`https://flagcdn.com/16x12/${getFlagCode(item.target_language)}.png`}
                                 alt={getLanguageName(item.target_language)}
-                                className="h-3"
+                                width={16}
+                                height={12}
+                                className="h-3 w-4"
                               />
                               <Button
                                 variant="ghost"
@@ -507,7 +517,7 @@ export default function VocabularyPage() {
                                   <div className="space-y-1">
                                     {item.context && <p>Context: {item.context}</p>}
                                     {item.example_sentence && <p>Example: {item.example_sentence}</p>}
-                                  </div>
+                        </div>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -522,14 +532,14 @@ export default function VocabularyPage() {
                         )}
                         <Dialog>
                           <DialogTrigger asChild>
-                            <Button 
-                              variant="ghost"
+                        <Button
+                          variant="ghost"
                               size="sm"
                               className="rounded-none px-3"
                               onClick={() => handleEdit(item)}
-                            >
+                        >
                               <Edit className="h-4 w-4" />
-                            </Button>
+                        </Button>
                           </DialogTrigger>
                           <DialogContent>
                             <DialogHeader>
@@ -574,7 +584,7 @@ export default function VocabularyPage() {
                               </div>
                             </div>
                             <DialogFooter>
-                              <Button
+                        <Button
                                 variant="outline"
                                 onClick={() => {
                                   setIsEditing(null)
@@ -582,23 +592,27 @@ export default function VocabularyPage() {
                                 }}
                               >
                                 Cancel
-                              </Button>
+                        </Button>
                               <Button onClick={handleSaveEdit}>
                                 Save Changes
-                              </Button>
+                        </Button>
                             </DialogFooter>
                           </DialogContent>
                         </Dialog>
-                        <Dialog>
+                        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
                           <DialogTrigger asChild>
-                            <Button 
-                              variant="ghost"
+                        <Button
+                          variant="ghost"
                               size="sm"
                               className="rounded-none px-3 text-destructive"
                               disabled={isDeleting === item.id}
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
+                              onClick={() => {
+                                setItemToDelete(item.id)
+                                setIsDeleteDialogOpen(true)
+                              }}
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
                           </DialogTrigger>
                           <DialogContent>
                             <DialogHeader>
@@ -609,23 +623,16 @@ export default function VocabularyPage() {
                               <div className="flex justify-end gap-2">
                                 <Button 
                                   variant="outline" 
-                                  onClick={() => {
-                                    const dialog = document.querySelector('[role="dialog"]') as HTMLDialogElement;
-                                    dialog?.close();
-                                  }}
+                                  onClick={() => setIsDeleteDialogOpen(false)}
                                 >
                                   Cancel
                                 </Button>
                                 <Button 
                                   variant="destructive"
-                                  onClick={() => {
-                                    deleteVocabularyItem(item.id)
-                                    const dialog = document.querySelector('[role="dialog"]') as HTMLDialogElement;
-                                    dialog?.close();
-                                  }}
-                                  disabled={isDeleting === item.id}
+                                  onClick={() => itemToDelete && handleDelete(itemToDelete)}
+                                  disabled={isDeleting === itemToDelete}
                                 >
-                                  {isDeleting === item.id ? "Deleting..." : "Delete"}
+                                  {isDeleting === itemToDelete ? "Deleting..." : "Delete"}
                                 </Button>
                               </div>
                             </div>

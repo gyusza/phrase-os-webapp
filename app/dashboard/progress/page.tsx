@@ -3,14 +3,14 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { BookOpen, Calendar, Clock, Download, Mic } from 'lucide-react'
 
-type TimeRange = "week" | "month" | "year"
+type TimeRange = 'week' | 'month' | 'year'
 
 export default function ProgressPage() {
-  const [timeRange, setTimeRange] = useState<TimeRange>("week")
+  const [timeRange, setTimeRange] = useState<TimeRange>('week')
 
   return (
     <main className="flex-1 container py-6">
@@ -27,7 +27,11 @@ export default function ProgressPage() {
 
       <div className="grid gap-6">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-          <Tabs value={timeRange} onValueChange={setTimeRange} className="w-full md:w-auto">
+          <Tabs 
+            value={timeRange} 
+            onValueChange={(value) => setTimeRange(value as TimeRange)} 
+            className="w-full md:w-auto"
+          >
             <TabsList className="w-full grid grid-cols-3 md:w-auto">
               <TabsTrigger value="week">Week</TabsTrigger>
               <TabsTrigger value="month">Month</TabsTrigger>

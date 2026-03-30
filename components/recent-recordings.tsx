@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Play, Mic, Clock, BarChart2, Pause } from 'lucide-react'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
@@ -28,11 +28,7 @@ export default function RecentRecordings() {
   const router = useRouter()
   const supabase = createClient()
 
-  useEffect(() => {
-    fetchRecordings()
-  }, [])
-
-  const fetchRecordings = async () => {
+  const fetchRecordings = useCallback(async () => {
     try {
       setIsLoading(true)
       const { data: { user } } = await supabase.auth.getUser()
@@ -61,7 +57,11 @@ export default function RecentRecordings() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [supabase, toast])
+
+  useEffect(() => {
+    fetchRecordings()
+  }, [fetchRecordings])
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -176,11 +176,11 @@ export default function RecentRecordings() {
                            recording.language === 'da' ? 'Danish' : 'German'}</span>
                   </div>
                   <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                    recording.analyses?.[0]?.count > 0
+                    (recording.analyses?.[0]?.count ?? 0) > 0
                       ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                       : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
                   }`}>
-                    {recording.analyses?.[0]?.count > 0 ? 'Analyzed' : 'New'}
+                    {(recording.analyses?.[0]?.count ?? 0) > 0 ? 'Analyzed' : 'New'}
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">

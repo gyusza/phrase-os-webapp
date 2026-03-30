@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, MouseEvent } from "react"
+import { useEffect, useState, MouseEvent, useCallback } from "react"
 import { useParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
@@ -89,11 +89,7 @@ export default function AnalyzeRecordingPage() {
   const { toast } = useToast()
   const supabase = createClient()
 
-  useEffect(() => {
-    fetchRecording()
-  }, [params.id])
-
-  const fetchRecording = async () => {
+  const fetchRecording = useCallback(async () => {
     try {
       const { data: recordingData, error: recordingError } = await supabase
         .from('recordings')
@@ -174,7 +170,11 @@ export default function AnalyzeRecordingPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [params.id, supabase, toast])
+
+  useEffect(() => {
+    fetchRecording()
+  }, [fetchRecording])
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
