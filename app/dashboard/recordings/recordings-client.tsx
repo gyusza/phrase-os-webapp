@@ -30,12 +30,10 @@ export default function RecordingsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
-  const [isPlaying, setIsPlaying] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState<string | null>(null)
   const [newTitle, setNewTitle] = useState("")
   const [isDeleting, setIsDeleting] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<'all' | 'new' | 'analyzed'>('all')
-  const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({})
   const { toast } = useToast()
   const router = useRouter()
   const ITEMS_PER_PAGE = 10
@@ -89,42 +87,6 @@ export default function RecordingsPage() {
       return `Yesterday, ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
     } else {
       return date.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-    }
-  }
-
-  const playRecording = async (recording: Recording) => {
-    try {
-      if (!audioRefs.current[recording.id]) {
-        audioRefs.current[recording.id] = new Audio(recording.audio_url)
-        audioRefs.current[recording.id].onended = () => setIsPlaying(null)
-        audioRefs.current[recording.id].onerror = () => {
-          toast({
-            title: "Error",
-            description: "Failed to play the recording. Please try again.",
-            variant: "destructive",
-          })
-          setIsPlaying(null)
-        }
-      }
-
-      if (isPlaying === recording.id) {
-        audioRefs.current[recording.id].pause()
-      } else {
-        // Stop any currently playing audio
-        if (isPlaying && audioRefs.current[isPlaying]) {
-          audioRefs.current[isPlaying].pause()
-        }
-        await audioRefs.current[recording.id].play()
-      }
-      setIsPlaying(isPlaying === recording.id ? null : recording.id)
-    } catch (error) {
-      console.error('Error playing audio:', error)
-      toast({
-        title: "Error",
-        description: "Failed to play the recording. Please try again.",
-        variant: "destructive",
-      })
-      setIsPlaying(null)
     }
   }
 
@@ -322,19 +284,11 @@ export default function RecordingsPage() {
                               {recording.transcription}
                             </div>
                           )}
+                          <div className="mt-3">
+                             <audio controls preload="none" src={recording.audio_url} className="h-8 w-full max-w-[280px] outline-none" />
+                          </div>
                         </div>
                         <div className="flex gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => playRecording(recording)}
-                          >
-                            {isPlaying === recording.id ? (
-                              <Pause className="h-4 w-4" />
-                            ) : (
-                              <Play className="h-4 w-4" />
-                            )}
-                          </Button>
                           <Button 
                             variant="ghost" 
                             size="icon"

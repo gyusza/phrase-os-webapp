@@ -38,6 +38,13 @@ export async function POST(request: Request) {
     const fileBuffer = await fs.readFile(filePath)
     console.log(`[API Transcribe] Successfully read file buffer. Size: ${fileBuffer.length} bytes`)
 
+    if (fileBuffer.length === 0) {
+      return NextResponse.json(
+        { error: "Audio file is empty or corrupted (0 bytes)." },
+        { status: 400 }
+      )
+    }
+
     // Transcribe the audio using Gemini with language detection
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -45,13 +52,13 @@ export async function POST(request: Request) {
         {
           role: "user",
           parts: [
-            { text: `You are an audio transcription assistant.
+            { text: `You are an expert audio transcription assistant.
 First, detect the spoken language of the audio.
 ${sourceLanguages && sourceLanguages.length > 0 ? `If the detected language code is NOT one of these accepted source languages ( ${sourceLanguages.join(', ')} ), return exactly this strictly formatted JSON and nothing else:
 {"error": "Not an accepted source language", "language": "detected 2-letter ISO symbol"}
 
-If the detected language code IS one of the accepted source languages, ` : ''}transcribe the audio accurately in its original language. Return exactly this strictly formatted JSON:
-{"transcription": "the transcribed text", "language": "detected 2-letter ISO symbol"}` },
+If the detected language code IS one of the accepted source languages, ` : ''}transcribe the ENTIRE audio payload VERBATIM from start to finish. DO NOT summarize, compress, or paraphrase. DO NOT omit trailing words, hesitations, or pauses. You MUST return every single spoken word exactly as dictated. Return exactly this strictly formatted JSON:
+{"transcription": "the transcribed verbatim text", "language": "detected 2-letter ISO symbol"}` },
             { 
               inlineData: { 
                 data: fileBuffer.toString("base64"), 

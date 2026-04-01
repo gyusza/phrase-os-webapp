@@ -20,14 +20,21 @@ export async function POST(request: Request) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
+    if (buffer.length === 0) {
+      return NextResponse.json({ error: 'Uploaded file is empty (0 bytes)' }, { status: 400 });
+    }
+
     // Create unique filename
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
     const originalExt = path.extname(file.name) || '.webm'; // default to webm for audio
     const filename = `${uniqueSuffix}${originalExt}`;
     
-    // Save to public/uploads/audio/[user_id]
+    // Save to an external persistent volume or fallback to public/uploads/audio/[user_id]
     const userId = session.user.id as string || 'guest';
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'audio', userId);
+    const baseUploadDir = process.env.UPLOAD_DIR 
+      ? path.resolve(process.env.UPLOAD_DIR)
+      : path.join(process.cwd(), 'public', 'uploads', 'audio');
+    const uploadDir = path.join(baseUploadDir, userId);
     
     // Ensure directory exists
     await fs.mkdir(uploadDir, { recursive: true });

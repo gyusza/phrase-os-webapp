@@ -12,6 +12,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import { Checkbox } from "@/components/ui/checkbox"
 import { createRecording } from "@/lib/actions/recordings"
 import { getAnalysisData, saveAnalysis } from "@/lib/actions/analyze"
 import { createMultipleVocabulary } from "@/lib/actions/vocabulary"
@@ -34,24 +35,32 @@ interface RecordingDetails {
 export function RecordInterface({ sourceLanguages, targetLanguage }: RecordInterfaceProps) {
   const [isRecording, setIsRecording] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
-  const [finalDuration, setFinalDuration] = useState(0)
   const [isProcessing, setIsProcessing] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [completedRecording, setCompletedRecording] = useState<RecordingDetails | null>(null)
-  const [isPlaying, setIsPlaying] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [newVocabularyAdded, setNewVocabularyAdded] = useState<any[]>([])
+  
+  const [pendingVocabulary, setPendingVocabulary] = useState<any[]>([])
+  const [checkedVocabularyIndices, setCheckedVocabularyIndices] = useState<Set<number>>(new Set())
+  const [isImporting, setIsImporting] = useState(false)
+  
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const timerRef = useRef<NodeJS.Timeout | null>(null)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const durationRef = useRef(0)
   const { toast } = useToast()
 
   // Timer effect
   useEffect(() => {
     if (isRecording) {
+      durationRef.current = 0
       timerRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1)
+        setRecordingTime(prev => {
+          const updated = prev + 1
+          durationRef.current = updated
+          return updated
+        })
       }, 1000)
     } else {
       if (timerRef.current) {
@@ -82,12 +91,36 @@ export function RecordInterface({ sourceLanguages, targetLanguage }: RecordInter
       }
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' })
-        await handleRecordingComplete(audioBlob)
+        // Use the actual mimeType recorded by the browser, not forced webm
+        const actualMimeType = mediaRecorder.mimeType || 'audio/webm'
+        const audioBlob = new Blob(chunksRef.current, { type: actualMimeType })
+        const recordedDuration = durationRef.current
+        
+        if (audioBlob.size === 0) {
+          toast({
+            title: "Recording Error",
+            description: "No audio data was captured. Please check your microphone permissions.",
+            variant: "destructive",
+          })
+          setRecordingTime(0)
+          return
+        }
+
+        if (recordedDuration < 1) {
+          toast({
+            title: "Recording Too Short",
+            description: "The audio was too short to analyze.",
+            variant: "destructive",
+          })
+          setRecordingTime(0)
+          return
+        }
+
+        await handleRecordingComplete(audioBlob, recordedDuration)
         stream.getTracks().forEach(track => track.stop())
       }
 
-      mediaRecorder.start()
+      mediaRecorder.start(250) // Force chunk emission every 250ms to prevent browser deadlocks
       setIsRecording(true)
     } catch (error) {
       console.error('Error starting recording:', error)
@@ -103,7 +136,6 @@ export function RecordInterface({ sourceLanguages, targetLanguage }: RecordInter
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop()
       setIsRecording(false)
-      setFinalDuration(recordingTime)
     }
   }
 
@@ -130,14 +162,21 @@ export function RecordInterface({ sourceLanguages, targetLanguage }: RecordInter
     }
   }
 
-  const handleRecordingComplete = async (audioBlob: Blob) => {
+  const handleRecordingComplete = async (audioBlob: Blob, recordedDuration: number) => {
     console.log('Processing recording...')
-    console.log('Final duration:', finalDuration)
+    console.log('Final duration:', recordedDuration)
     setIsProcessing(true)
     try {
       console.log('Uploading audio file locally...')
+      
+      let extension = 'webm'
+      if (audioBlob.type.includes('mp4')) extension = 'mp4'
+      else if (audioBlob.type.includes('ogg')) extension = 'ogg'
+      else if (audioBlob.type.includes('wav')) extension = 'wav'
+      else if (audioBlob.type.includes('webm')) extension = 'webm'
+
       const formData = new FormData()
-      formData.append('file', audioBlob, 'recording.webm')
+      formData.append('file', audioBlob, `recording.${extension}`)
       
       const uploadRes = await fetch('/api/upload', {
         method: 'POST',
@@ -160,13 +199,13 @@ export function RecordInterface({ sourceLanguages, targetLanguage }: RecordInter
         title: `Recording ${new Date().toLocaleString()}`,
         audio_url: publicUrl,
         language: detectedLanguage,
-        duration: finalDuration,
+        duration: recordedDuration,
         transcription,
         status: 'new',
         metadata: {
           source_languages: sourceLanguages,
           target_language: targetLanguage,
-          recording_time: finalDuration,
+          recording_time: recordedDuration,
           detected_language: detectedLanguage
         }
       }
@@ -238,11 +277,11 @@ export function RecordInterface({ sourceLanguages, targetLanguage }: RecordInter
             }
           })
 
-          await createMultipleVocabulary(vocabularyItems)
-          setNewVocabularyAdded(vocabularyItems)
+          setPendingVocabulary(vocabularyItems)
+          setCheckedVocabularyIndices(new Set(vocabularyItems.map((_, i) => i)))
           toast({
-            title: "Vocabulary Updated",
-            description: `Automatically added ${vocabularyItems.length} new expressions.`,
+            title: "Analysis Ready",
+            description: `Extracted ${vocabularyItems.length} new expressions for review.`,
           })
         } else {
           toast({
@@ -269,53 +308,54 @@ export function RecordInterface({ sourceLanguages, targetLanguage }: RecordInter
     }
   }
 
-  const playRecording = async () => {
-    if (!completedRecording) return;
-
+  const confirmVocabularyImport = async () => {
+    setIsImporting(true)
     try {
-      if (!audioRef.current) {
-        audioRef.current = new Audio(completedRecording.audio_url);
-        audioRef.current.onended = () => setIsPlaying(false);
-        audioRef.current.onerror = (e) => {
-          console.error('Audio playback error:', e);
-          toast({
-            title: "Error",
-            description: "Failed to play the recording. Please try again.",
-            variant: "destructive",
-          });
-          setIsPlaying(false);
-        };
+      const itemsToImport = pendingVocabulary.filter((_, index) => checkedVocabularyIndices.has(index))
+      
+      if (itemsToImport.length > 0) {
+        await createMultipleVocabulary(itemsToImport)
+        setNewVocabularyAdded(itemsToImport)
+        setPendingVocabulary([])
+        toast({
+          title: "Vocabulary Imported",
+          description: `Successfully added ${itemsToImport.length} expressions to your vocabulary.`,
+        })
+      } else {
+        setPendingVocabulary([])
+        toast({
+          title: "Import Skipped",
+          description: "No vocabulary items were selected for import.",
+        })
       }
-
-      await audioRef.current.play();
-      setIsPlaying(true);
     } catch (error) {
-      console.error('Error playing audio:', error);
+      console.error('Error importing vocabulary:', error)
       toast({
         title: "Error",
-        description: "Failed to play the recording. Please try again.",
+        description: "Failed to import vocabulary. Please try again.",
         variant: "destructive",
-      });
-      setIsPlaying(false);
+      })
+    } finally {
+      setIsImporting(false)
     }
   }
 
-  const stopPlayback = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      setIsPlaying(false);
+  const toggleVocabularyCheck = (index: number, checked: boolean) => {
+    const nextSet = new Set(checkedVocabularyIndices)
+    if (checked) {
+      nextSet.add(index)
+    } else {
+      nextSet.delete(index)
     }
+    setCheckedVocabularyIndices(nextSet)
   }
 
   const resetRecording = () => {
-    setCompletedRecording(null);
-    setNewVocabularyAdded([]);
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    setIsPlaying(false);
+    setCompletedRecording(null)
+    setNewVocabularyAdded([])
+    setPendingVocabulary([])
+    setCheckedVocabularyIndices(new Set())
+    setRecordingTime(0)
   }
 
   const formatTime = (seconds: number) => {
@@ -442,24 +482,20 @@ export function RecordInterface({ sourceLanguages, targetLanguage }: RecordInter
                     </div>
                   </div>
 
-                  <div className="flex justify-center gap-4">
+                  <div className="flex flex-col items-center gap-4 w-full pt-2">
+                    <audio 
+                      controls 
+                      src={completedRecording.audio_url} 
+                      className="w-full max-w-md h-10 outline-none" 
+                    />
                     <Button
                       variant="outline"
-                      size="icon"
-                      onClick={isPlaying ? stopPlayback : playRecording}
-                    >
-                      {isPlaying ? (
-                        <Pause className="h-4 w-4" />
-                      ) : (
-                        <Play className="h-4 w-4" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
+                      size="sm"
                       onClick={resetRecording}
+                      className="flex items-center gap-2"
                     >
                       <RefreshCcw className="h-4 w-4" />
+                      Record Another Audio Segment
                     </Button>
                   </div>
 
@@ -477,12 +513,53 @@ export function RecordInterface({ sourceLanguages, targetLanguage }: RecordInter
                      </div>
                   )}
 
-                  {!isAnalyzing && newVocabularyAdded.length > 0 && (
+                  {!isAnalyzing && pendingVocabulary.length > 0 && (
                     <div className="space-y-4 mt-6">
-                      <h3 className="text-sm font-medium">New Vocabulary Acquired</h3>
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-medium">Review New Vocabulary ({checkedVocabularyIndices.size} / {pendingVocabulary.length} selected)</h3>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {pendingVocabulary.map((vocab, index) => (
+                           <div key={index} className="flex gap-3 items-start border rounded-lg p-3 hover:bg-muted/50 transition-colors">
+                             <Checkbox 
+                               checked={checkedVocabularyIndices.has(index)} 
+                               onCheckedChange={(checked) => toggleVocabularyCheck(index, checked as boolean)} 
+                               className="mt-1"
+                             />
+                             <div className="flex flex-col flex-1 min-w-0">
+                               <div className="flex justify-between items-start mb-1 gap-2">
+                                 <span className="font-semibold text-sm truncate">{vocab.word}</span>
+                                 {vocab.metadata?.type && (
+                                   <Badge variant="outline" className="text-[10px] shrink-0">
+                                     {vocab.metadata.type}
+                                   </Badge>
+                                 )}
+                               </div>
+                               <span className="text-sm text-muted-foreground leading-tight">{vocab.translation}</span>
+                               {vocab.context && (
+                                 <span className="text-xs text-muted-foreground opacity-80 mt-1 italic leading-tight">
+                                   {vocab.context}
+                                 </span>
+                               )}
+                             </div>
+                           </div>
+                        ))}
+                      </div>
+                      <div className="flex justify-end pt-2">
+                        <Button onClick={confirmVocabularyImport} disabled={isImporting} className="w-full sm:w-auto">
+                          {isImporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Import {checkedVocabularyIndices.size} Selected Items
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!isAnalyzing && pendingVocabulary.length === 0 && newVocabularyAdded.length > 0 && (
+                    <div className="space-y-4 mt-6">
+                      <h3 className="text-sm font-medium">Imported Vocabulary</h3>
                       <div className="grid gap-3 sm:grid-cols-2">
                         {newVocabularyAdded.map((vocab, index) => (
-                           <Card key={index} className="flex flex-col p-4 border-l-4 border-l-primary">
+                           <Card key={index} className="flex flex-col p-4 border-l-4 border-l-primary/30 opacity-70">
                              <div className="flex justify-between items-start mb-2">
                                <span className="font-semibold">{vocab.word}</span>
                                {vocab.metadata?.type && (

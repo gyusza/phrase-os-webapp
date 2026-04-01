@@ -67,8 +67,6 @@ export default function AnalyzeRecordingPage() {
   const [analyzedItems, setAnalyzedItems] = useState<AnalyzedItem[]>([])
   const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysis[]>([])
   const [selectedAnalysisId, setSelectedAnalysisId] = useState<string | null>(null)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
   const { toast } = useToast()
 
   const fetchRecording = useCallback(async () => {
@@ -128,39 +126,6 @@ export default function AnalyzeRecordingPage() {
     }
   }
 
-  const playRecording = async () => {
-    if (!recording) return
-
-    try {
-      if (!audioRef.current) {
-        audioRef.current = new Audio(recording.audio_url)
-        audioRef.current.onended = () => setIsPlaying(false)
-        audioRef.current.onerror = () => {
-          toast({
-            title: "Error",
-            description: "Failed to play the recording. Please try again.",
-            variant: "destructive",
-          })
-          setIsPlaying(false)
-        }
-      }
-
-      if (isPlaying) {
-        audioRef.current.pause()
-      } else {
-        await audioRef.current.play()
-      }
-      setIsPlaying(!isPlaying)
-    } catch (error) {
-      console.error('Error playing audio:', error)
-      toast({
-        title: "Error",
-        description: "Failed to play the recording. Please try again.",
-        variant: "destructive",
-      })
-      setIsPlaying(false)
-    }
-  }
 
   const analyzeRecording = async (forceNew: boolean = false) => {
     try {
@@ -367,19 +332,7 @@ export default function AnalyzeRecordingPage() {
               {formatDate(recording.created_at)}
             </p>
           </div>
-          <Button onClick={playRecording} className="flex items-center gap-2">
-            {isPlaying ? (
-              <>
-                <Pause className="h-4 w-4" />
-                Pause
-              </>
-            ) : (
-              <>
-                <Play className="h-4 w-4" />
-                Play
-              </>
-            )}
-          </Button>
+          <audio controls preload="none" src={recording.audio_url} className="h-10 w-full max-w-sm outline-none" />
         </div>
 
         <Card>

@@ -5,9 +5,10 @@ import path from 'path';
 
 let sqlite: Database.Database;
 
-// In Next.js serverless functions or hot reloading, we want to prevent multiple database connections.
-// This is done via the global object for the dev server context.
-const dbPath = path.resolve(process.cwd(), 'sqlite.db');
+// Allow cloud platforms (like Render/Fly.io) to override the dbPath to point to a Persistent Volume Mount
+const dbPath = process.env.DATABASE_PATH 
+    ? path.resolve(process.env.DATABASE_PATH)
+    : path.resolve(process.cwd(), 'sqlite.db');
 
 if (process.env.NODE_ENV === 'production') {
   sqlite = new Database(dbPath);
