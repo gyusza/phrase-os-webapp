@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Play, Mic, Clock, BarChart2, Pause } from 'lucide-react'
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { createClient } from "@/lib/supabase/client"
+import { getRecordings } from "@/lib/actions/recordings"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 
@@ -19,49 +19,12 @@ interface Recording {
   analyses?: { count: number }[]
 }
 
-export default function RecentRecordings() {
-  const [recordings, setRecordings] = useState<Recording[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+export default function RecentRecordings({ initialRecordings }: { initialRecordings: Recording[] }) {
+  const [recordings, setRecordings] = useState<Recording[]>(initialRecordings)
   const [isPlaying, setIsPlaying] = useState<string | null>(null)
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({})
   const { toast } = useToast()
   const router = useRouter()
-  const supabase = createClient()
-
-  const fetchRecordings = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('No user found')
-
-      const { data, error } = await supabase
-        .from('recordings')
-        .select(`
-          *,
-          analyses:analyses(count)
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(3)
-
-      if (error) throw error
-
-      setRecordings(data || [])
-    } catch (error) {
-      console.error('Error fetching recordings:', error)
-      toast({
-        title: "Error",
-        description: "Failed to load recordings. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }, [supabase, toast])
-
-  useEffect(() => {
-    fetchRecordings()
-  }, [fetchRecordings])
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -87,20 +50,7 @@ export default function RecentRecordings() {
   const playRecording = async (recording: Recording) => {
     try {
       if (!audioRefs.current[recording.id]) {
-        // Get a fresh download URL for the audio file
-        const storagePath = recording.audio_url
-          .split('/audio/')[1]
-          .replace(/\?.*$/, '')
-
-        const { data, error } = await supabase.storage
-          .from('audio')
-          .createSignedUrl(storagePath, 3600)
-
-        if (error || !data?.signedUrl) {
-          throw new Error('Failed to get audio URL')
-        }
-
-        audioRefs.current[recording.id] = new Audio(data.signedUrl)
+        audioRefs.current[recording.id] = new Audio(recording.audio_url)
         audioRefs.current[recording.id].onended = () => setIsPlaying(null)
         audioRefs.current[recording.id].onerror = () => {
           toast({
@@ -137,13 +87,7 @@ export default function RecentRecordings() {
     router.push(`/dashboard/recordings/${recording.id}/analyze`)
   }
 
-  if (isLoading) {
-    return (
-      <div className="text-center py-4 text-muted-foreground">
-        Loading recordings...
-      </div>
-    )
-  }
+
 
   if (recordings.length === 0) {
     return (

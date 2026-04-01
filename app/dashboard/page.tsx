@@ -1,5 +1,3 @@
-"use client"
-
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -8,70 +6,18 @@ import Link from "next/link"
 import RecentRecordings from "@/components/recent-recordings"
 import RecentVocabulary from "@/components/recent-vocabulary"
 import ProgressStats from "@/components/progress-stats"
-import { useEffect, useState, useCallback } from "react"
-import { createClient } from "@/lib/supabase/client"
-import { useToast } from "@/hooks/use-toast"
+import { getDashboardStats } from "@/lib/actions/dashboard"
 
-export default function DashboardPage() {
-  const [totalRecordings, setTotalRecordings] = useState<number>(0)
-  const [totalVocabulary, setTotalVocabulary] = useState<number>(0)
-  const [isLoading, setIsLoading] = useState(true)
-  const { toast } = useToast()
-  const supabase = createClient()
+import { getRecordings } from "@/lib/actions/recordings"
+import { getVocabulary } from "@/lib/actions/vocabulary"
 
-  const fetchTotalRecordings = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('No user found')
-
-      const { count, error } = await supabase
-        .from('recordings')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-
-      if (error) throw error
-
-      setTotalRecordings(count || 0)
-    } catch (error) {
-      console.error('Error fetching total recordings:', error)
-      toast({
-        title: "Error",
-        description: "Failed to load total recordings count. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }, [supabase, toast])
-
-  const fetchTotalVocabulary = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('No user found')
-
-      const { count, error } = await supabase
-        .from('vocabulary')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-
-      if (error) throw error
-
-      setTotalVocabulary(count || 0)
-    } catch (error) {
-      console.error('Error fetching total vocabulary:', error)
-      toast({
-        title: "Error",
-        description: "Failed to load vocabulary count. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }, [supabase, toast])
-
-  useEffect(() => {
-    fetchTotalRecordings()
-    fetchTotalVocabulary()
-  }, [fetchTotalRecordings, fetchTotalVocabulary])
+export default async function DashboardPage() {
+  const [stats, recordings, vocabularyItems] = await Promise.all([
+    getDashboardStats(),
+    getRecordings(3),
+    getVocabulary(5)
+  ]);
+  const { totalRecordings, totalVocabulary } = stats;
 
   return (
     <main className="flex-1 py-6">
@@ -97,12 +43,8 @@ export default function DashboardPage() {
                 <Mic className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  {isLoading ? "..." : totalRecordings}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {isLoading ? "Loading..." : "Keep it coming!"}
-                </p>
+                <div className="text-2xl font-bold">{totalRecordings}</div>
+                <p className="text-xs text-muted-foreground">Keep it coming!</p>
               </CardContent>
             </Card>
             <Card>
@@ -111,12 +53,8 @@ export default function DashboardPage() {
                 <BookOpen className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  {isLoading ? "..." : totalVocabulary}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {isLoading ? "Loading..." : "Keep learning!"}
-                </p>
+                <div className="text-2xl font-bold">{totalVocabulary}</div>
+                <p className="text-xs text-muted-foreground">Keep learning!</p>
               </CardContent>
             </Card>
             <Card>
@@ -154,7 +92,7 @@ export default function DashboardPage() {
                   <Link href="/dashboard/recordings">View All</Link>
                 </Button>
               </div>
-              <RecentRecordings />
+              <RecentRecordings initialRecordings={recordings} />
             </TabsContent>
 
             <TabsContent value="vocabulary" className="space-y-4">
@@ -164,7 +102,7 @@ export default function DashboardPage() {
                   <Link href="/dashboard/vocabulary">View All</Link>
                 </Button>
               </div>
-              <RecentVocabulary />
+              <RecentVocabulary initialVocabulary={vocabularyItems} />
             </TabsContent>
 
             <TabsContent value="progress" className="space-y-4">

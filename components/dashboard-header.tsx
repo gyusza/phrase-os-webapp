@@ -15,13 +15,12 @@ import { Mic, BookOpen, BarChart2, Settings, User, LogOut, Menu } from 'lucide-r
 import { usePathname } from "next/navigation"
 import { useState } from "react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { createClient } from "@/lib/supabase/client"
+import { signOut } from "next-auth/react"
 
 export default function DashboardHeader() {
   const pathname = usePathname()
   const router = useRouter()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const supabase = createClient()
   
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: BarChart2 },
@@ -32,10 +31,7 @@ export default function DashboardHeader() {
 
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut()
-      if (error) throw error
-      router.push("/auth/login")
-      router.refresh()
+      await signOut({ callbackUrl: '/auth/login' })
     } catch (error) {
       console.error("Error logging out:", error)
     }

@@ -1,43 +1,22 @@
-import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
-import RecordInterface from "@/components/record/record-interface"
+import { RecordInterface } from "@/components/record/record-interface"
+import { getUserSettings } from "@/lib/actions/settings"
 
 export default async function RecordPage() {
-  const supabase = createClient()
+  const settingsData: any = await getUserSettings()
+  
+  // Get source languages array or fallback
+  const sourceLanguages = Array.isArray(settingsData?.source_languages) 
+    ? settingsData?.source_languages 
+    : typeof settingsData?.source_languages === 'string'
+      ? JSON.parse(settingsData?.source_languages)
+      : ['en']
 
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/auth/login")
-  }
-
-  // Get user settings to determine source and target languages
-  const { data: settings } = await supabase
-    .from('user_settings')
-    .select('source_languages, target_language')
-    .eq('user_id', user.id)
-    .single()
-
-  // Default to English if no settings found
-  const sourceLanguages = settings?.source_languages || ['en']
-  const targetLanguage = settings?.target_language || 'en'
-
+  const targetLanguage = settingsData?.target_language || 'da'
+    
   return (
-    <main className="flex-1 container py-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">New Recording</h1>
-          <p className="text-muted-foreground">Record your speech in any of your source languages.</p>
-        </div>
-      </div>
-
-      <div className="grid place-items-center">
-        <div className="w-full max-w-2xl">
-          <RecordInterface 
-            sourceLanguages={sourceLanguages}
-            targetLanguage={targetLanguage}
-          />
-        </div>
+    <main className="flex-1 py-6">
+      <div className="container max-w-4xl mx-auto px-4 md:px-6">
+        <RecordInterface sourceLanguages={sourceLanguages} targetLanguage={targetLanguage} />
       </div>
     </main>
   )

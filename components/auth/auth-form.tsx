@@ -1,103 +1,61 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Icons } from "@/components/ui/icons"
-import { useToast } from "@/hooks/use-toast"
+import { loginAction } from "@/lib/actions/auth"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 interface AuthFormProps {
   type: "login" | "signup"
 }
 
 export function AuthForm({ type }: AuthFormProps) {
-  const router = useRouter()
-  const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [mounted, setMounted] = useState(false)
 
-  useEffect(() => {
-    console.log("AuthForm mounted")
-    setMounted(true)
-    return () => setMounted(false)
-  }, [])
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
 
-  const handleError = useCallback((error: Error) => {
-    if (!mounted) return
-    console.error("Auth error:", error)
-    setError(error.message)
-    setIsLoading(false)
-  }, [mounted])
-
-  const handleGoogleSignIn = useCallback(async () => {
-    if (!mounted) return
-    try {
-      console.log("Starting Google sign in process...")
-      setIsLoading(true)
-      setError(null)
-      
-      console.log("Creating Supabase client...")
-      const supabase = createClient()
-      console.log("Supabase client created successfully")
-
-      console.log("Initiating OAuth flow...")
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      })
-
-      if (error) {
-        console.error("OAuth error:", error)
-        throw error
-      }
-
-      console.log("OAuth flow initiated successfully")
-      toast({
-        title: "Success",
-        description: "Redirecting to Google...",
-      })
-    } catch (error) {
-      console.error("Error in handleGoogleSignIn:", error)
-      handleError(error as Error)
+    const formData = new FormData(e.currentTarget);
+    const res = await loginAction(formData)
+    
+    // loginAction throws redirect on success, so if it returns, it's an error
+    if (res?.error) {
+      setError(res.error)
+      setIsLoading(false)
     }
-  }, [mounted, handleError, toast])
-
-  if (!mounted) return null
+  }
 
   return (
     <div className="grid gap-6">
       <div className="flex flex-col space-y-2 text-center">
         <h1 className="text-2xl font-semibold tracking-tight">
-          {type === "login" ? "Welcome back" : "Create an account"}
+          Welcome back
         </h1>
         <p className="text-sm text-muted-foreground">
-          {type === "login"
-            ? "Sign in to your account to continue"
-            : "Enter your details to create your account"}
+          Sign in using local credentials
         </p>
       </div>
 
-      <div className="grid gap-4">
-        <Button
-          variant="outline"
-          type="button"
-          disabled={isLoading}
-          onClick={handleGoogleSignIn}
-          className="w-full"
-        >
-          {isLoading ? (
-            <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Icons.google className="mr-2 h-4 w-4" />
-          )}
-          Continue with Google
+      <form onSubmit={handleSubmit} className="grid gap-4">
+        <div className="grid gap-2">
+          <Label htmlFor="username">Username</Label>
+          <Input id="username" name="username" placeholder="admin or guest" required disabled={isLoading} />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="password">Password</Label>
+          <Input id="password" name="password" type="password" required disabled={isLoading} />
+        </div>
+        <Button disabled={isLoading}>
+          {isLoading && <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />}
+          Sign In
         </Button>
-      </div>
+      </form>
 
       {error && (
         <Alert variant="destructive">
@@ -105,29 +63,10 @@ export function AuthForm({ type }: AuthFormProps) {
         </Alert>
       )}
 
-      <p className="px-8 text-center text-sm text-muted-foreground">
-        {type === "login" ? (
-          <>
-            Don&apos;t have an account?{" "}
-            <a
-              href="/auth/signup"
-              className="underline underline-offset-4 hover:text-primary"
-            >
-              Sign up
-            </a>
-          </>
-        ) : (
-          <>
-            Already have an account?{" "}
-            <a
-              href="/auth/login"
-              className="underline underline-offset-4 hover:text-primary"
-            >
-              Sign in
-            </a>
-          </>
-        )}
-      </p>
+      <div className="text-center text-sm text-muted-foreground mt-4 border-t pt-4">
+        <p>Use <b>admin</b> / <b>admin</b> to view migrated data.</p>
+        <p>Use <b>guest</b> / <b>guest</b> for a testing account.</p>
+      </div>
     </div>
   )
-} 
+}

@@ -1,15 +1,15 @@
 "use client"
 
-import { useEffect, useState, MouseEvent, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useParams } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Play, Pause, Mic, Clock, BarChart2, Loader2 } from "lucide-react"
-import { useRef } from "react"
+import { Play, Pause, Mic, BarChart2, Loader2 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { getAnalysisData, saveAnalysis } from "@/lib/actions/analyze"
+import { createMultipleVocabulary } from "@/lib/actions/vocabulary"
 
 interface Recording {
   id: string
@@ -19,7 +19,7 @@ interface Recording {
   created_at: string
   language: string
   transcription: string | null
-  status: 'new' | 'analyzed'
+  status: 'new' | 'analyzed' | string
 }
 
 interface AnalyzedItem {
@@ -57,23 +57,6 @@ interface TranslationResponse {
   }>
 }
 
-interface OpenAIResponse {
-  items: SavedAnalysisItem[]
-}
-
-interface VocabularyItem {
-  user_id: string
-  word: string
-  translation: string
-  language: string
-  context: string | null
-  example_sentence: string | null
-  metadata: {
-    type: 'word' | 'expression' | 'sentence'
-    recording_id: string
-  }
-}
-
 export default function AnalyzeRecordingPage() {
   const params = useParams<{ id: string }>()
   const [recording, setRecording] = useState<Recording | null>(null)
@@ -87,100 +70,48 @@ export default function AnalyzeRecordingPage() {
   const [isPlaying, setIsPlaying] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const { toast } = useToast()
-  const supabase = createClient()
 
   const fetchRecording = useCallback(async () => {
     try {
-      const { data: recordingData, error: recordingError } = await supabase
-        .from('recordings')
-        .select('*')
-        .eq('id', params.id)
-        .single()
+      const data: any = await getAnalysisData(params.id)
 
-      if (recordingError) throw recordingError
+      setRecording(data.recording)
+      setUserSettings(data.settings)
 
-      // Fetch analyses for this recording
-      const { data: analysesData, error: analysesError } = await supabase
-        .from('analyses')
-        .select('*')
-        .eq('recording_id', params.id)
-        .order('created_at', { ascending: false })
-
-      if (analysesError) throw analysesError
-
-      // Set recording data
-      setRecording(recordingData)
-
-      // If there are analyses, load the most recent one
+      const analysesData = data.analyses
       if (analysesData && analysesData.length > 0) {
         const mostRecentAnalysis = analysesData[0]
+        
+        let existingWords = new Set<string>()
+        if (data.existingWords && data.existingWords.length > 0) {
+          existingWords = new Set(data.existingWords)
+        }
+
         setAnalyzedItems(mostRecentAnalysis.items.map((item: SavedAnalysisItem) => ({
           ...item,
           selected: false,
-          translation: undefined
+          translation: existingWords.has(item.text.toLowerCase()) ? "Already in vocabulary" : undefined
         })))
         setSelectedAnalysisId(mostRecentAnalysis.id)
         setSavedAnalyses(analysesData)
+      } else {
+        setAnalyzedItems([])
       }
-
-      // Fetch user settings
-      const { data: settingsData, error: settingsError } = await supabase
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', recordingData.user_id)
-        .single()
-
-      if (settingsError) throw settingsError
-      setUserSettings(settingsData)
-
-      // Fetch user profile for target language
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', recordingData.user_id)
-        .single()
-
-      if (profileError) throw profileError
-
-      // Fetch existing vocabulary items
-      const { data: existingItems, error: vocabularyError } = await supabase
-        .from('vocabulary')
-        .select('word')
-        .eq('user_id', recordingData.user_id)
-        .eq('language', recordingData.language)
-
-      if (vocabularyError) throw vocabularyError
-
-      // Mark items that are already in vocabulary
-      if (existingItems && existingItems.length > 0) {
-        const existingWords = new Set(existingItems.map((item: { word: string }) => item.word))
-        setAnalyzedItems(prev => prev.map(item => ({
-          ...item,
-          translation: existingWords.has(item.text) ? "Already in vocabulary" : item.translation
-        })))
-      }
-
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching recording:', error)
       toast({
         title: "Error",
-        description: "Failed to load recording details",
+        description: error.message || "Failed to load recording details",
         variant: "destructive",
       })
     } finally {
       setIsLoading(false)
     }
-  }, [params.id, supabase, toast])
+  }, [params.id, toast])
 
   useEffect(() => {
     fetchRecording()
   }, [fetchRecording])
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -202,20 +133,7 @@ export default function AnalyzeRecordingPage() {
 
     try {
       if (!audioRef.current) {
-        // Get a fresh download URL for the audio file
-        const storagePath = recording.audio_url
-          .split('/audio/')[1]
-          .replace(/\?.*$/, '')
-
-        const { data, error } = await supabase.storage
-          .from('audio')
-          .createSignedUrl(storagePath, 3600)
-
-        if (error || !data?.signedUrl) {
-          throw new Error('Failed to get audio URL')
-        }
-
-        audioRef.current = new Audio(data.signedUrl)
+        audioRef.current = new Audio(recording.audio_url)
         audioRef.current.onended = () => setIsPlaying(false)
         audioRef.current.onerror = () => {
           toast({
@@ -247,8 +165,6 @@ export default function AnalyzeRecordingPage() {
   const analyzeRecording = async (forceNew: boolean = false) => {
     try {
       setIsAnalyzing(true)
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
 
       const response = await fetch('/api/analyze', {
         method: 'POST',
@@ -272,29 +188,15 @@ export default function AnalyzeRecordingPage() {
         translation: undefined
       })))
 
-      // Save the analysis to the database
-      const { data: analysisData, error: analysisError } = await supabase
-        .from('analyses')
-        .insert({
-          recording_id: params.id,
-          items: data.items
-        })
-        .select()
-        .single()
-
-      if (analysisError) throw analysisError
+      const analysisData: any = await saveAnalysis(params.id, data.items)
 
       // Update saved analyses list
       setSavedAnalyses(prev => [analysisData, ...(prev || [])])
       setSelectedAnalysisId(analysisData.id)
 
-      // Update recording status to analyzed
-      const { error: updateError } = await supabase
-        .from('recordings')
-        .update({ status: 'analyzed' })
-        .eq('id', params.id)
-
-      if (updateError) throw updateError
+      if (recording) {
+        setRecording({ ...recording, status: 'analyzed' })
+      }
 
       toast({
         title: "Success",
@@ -322,21 +224,15 @@ export default function AnalyzeRecordingPage() {
 
   const handleSaveToVocabulary = async () => {
     try {
+      console.log('\n[Analyze Client] Starting handleSaveToVocabulary process...')
       setIsSaving(true)
       const selectedItems = analyzedItems.filter((item: AnalyzedItem) => item.selected)
+      console.log(`[Analyze Client] Total items selected by user: ${selectedItems.length}`)
+
       if (selectedItems.length === 0) {
         toast({
           title: "No items selected",
           description: "Please select at least one item to add to your vocabulary.",
-          variant: "destructive",
-        })
-        return
-      }
-
-      if (!userSettings?.target_language) {
-        toast({
-          title: "Error",
-          description: "Please set your target language in your settings.",
           variant: "destructive",
         })
         return
@@ -351,19 +247,12 @@ export default function AnalyzeRecordingPage() {
         return
       }
 
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('No user found')
-
-      const { data: existingItems, error: checkError } = await supabase
-        .from('vocabulary')
-        .select('word')
-        .eq('user_id', user.id)
-        .in('word', selectedItems.map(item => item.text))
-
-      if (checkError) throw checkError
-
-      const existingWords = new Set((existingItems || []).map((item: { word: string }) => item.word))
-      const newItems = selectedItems.filter(item => !existingWords.has(item.text))
+      const data: any = await getAnalysisData(params.id)
+      const existingWords = new Set(data?.existingWords || [])
+      console.log(`[Analyze Client] Identified ${existingWords.size} words that already exist in user's vocabulary.`)
+      
+      const newItems = selectedItems.filter(item => !existingWords.has(item.text.toLowerCase()))
+      console.log(`[Analyze Client] Items filtered out. New distinct items to insert: ${newItems.length}`)
 
       if (newItems.length === 0) {
         toast({
@@ -372,6 +261,9 @@ export default function AnalyzeRecordingPage() {
         })
         return
       }
+
+      const targetLanguage = userSettings?.target_language || 'da'
+      console.log(`[Analyze Client] Sending translation request to backend for new items format. Target Language: ${targetLanguage}`)
 
       const translateResponse = await fetch('/api/translate', {
         method: 'POST',
@@ -384,7 +276,7 @@ export default function AnalyzeRecordingPage() {
             type: item.type,
           })),
           sourceLanguage: recording.language,
-          targetLanguage: userSettings.target_language,
+          targetLanguage,
         }),
       })
 
@@ -398,17 +290,17 @@ export default function AnalyzeRecordingPage() {
         throw new Error('Invalid translation response format')
       }
 
-      const vocabularyItems: VocabularyItem[] = newItems.map((item: AnalyzedItem, index) => {
+      const vocabularyItems = newItems.map((item: AnalyzedItem, index) => {
         const translation = translationData.translations[index]
         if (!translation) {
           throw new Error(`Missing translation for item: ${item.text}`)
         }
 
         return {
-          user_id: user.id,
           word: item.text,
           translation: translation.translation,
           language: recording.language,
+          target_language: targetLanguage,
           context: translation.explanation || null,
           example_sentence: item.type === 'sentence' ? item.text : null,
           metadata: {
@@ -418,30 +310,21 @@ export default function AnalyzeRecordingPage() {
         }
       })
 
-      const { error } = await supabase
-        .from('vocabulary')
-        .insert(vocabularyItems)
-
-      if (error) throw error
-
-      const { error: updateError } = await supabase
-        .from('recordings')
-        .update({ status: 'analyzed' })
-        .eq('id', recording.id)
-
-      if (updateError) throw updateError
+      console.log(`[Analyze Client] Successfully mapped and created local payload. Invoking createMultipleVocabulary...`)
+      await createMultipleVocabulary(vocabularyItems)
+      console.log(`[Analyze Client] API call to createMultipleVocabulary succeeded!`)
 
       setAnalyzedItems(items =>
         items.map(item => ({
           ...item,
           selected: false,
-          translation: existingWords.has(item.text) ? "Already in vocabulary" : item.translation
+          translation: existingWords.has(item.text.toLowerCase()) ? "Already in vocabulary" : item.translation
         }))
       )
 
       toast({
         title: "Success",
-        description: `Added ${newItems.length} new items to your vocabulary. ${existingWords.size} items were already present.`,
+        description: `Added ${newItems.length} new items to your vocabulary.`,
       })
 
       fetchRecording()
@@ -773,4 +656,4 @@ export default function AnalyzeRecordingPage() {
       </div>
     </div>
   )
-} 
+}

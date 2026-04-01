@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Mic, Square, Loader2, Play, RefreshCcw, Pause, Upload, FileText } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
-import { createClient } from "@/lib/supabase/client"
 import { Badge } from "@/components/ui/badge"
 import {
   Accordion,
@@ -13,6 +12,9 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import { createRecording } from "@/lib/actions/recordings"
+import { getAnalysisData, saveAnalysis } from "@/lib/actions/analyze"
+import { createMultipleVocabulary } from "@/lib/actions/vocabulary"
 
 interface RecordInterfaceProps {
   sourceLanguages: string[]
@@ -26,10 +28,10 @@ interface RecordingDetails {
   transcription: string
   duration: number
   language: string
-  status: 'new' | 'analyzed'
+  status: 'new' | 'analyzed' | string
 }
 
-export default function RecordInterface({ sourceLanguages, targetLanguage }: RecordInterfaceProps) {
+export function RecordInterface({ sourceLanguages, targetLanguage }: RecordInterfaceProps) {
   const [isRecording, setIsRecording] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
   const [finalDuration, setFinalDuration] = useState(0)
@@ -37,12 +39,13 @@ export default function RecordInterface({ sourceLanguages, targetLanguage }: Rec
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [completedRecording, setCompletedRecording] = useState<RecordingDetails | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [newVocabularyAdded, setNewVocabularyAdded] = useState<any[]>([])
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const { toast } = useToast()
-  const supabase = createClient()
 
   // Timer effect
   useEffect(() => {
@@ -104,18 +107,19 @@ export default function RecordInterface({ sourceLanguages, targetLanguage }: Rec
     }
   }
 
-  const transcribeAudio = async (audioUrl: string) => {
+  const transcribeAudio = async (audioUrl: string, sourceLanguages: string[]) => {
     try {
       const response = await fetch('/api/transcribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ audioUrl })
+        body: JSON.stringify({ audioUrl, sourceLanguages })
       })
 
       if (!response.ok) {
-        throw new Error('Transcription failed')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Transcription failed')
       }
 
       const { transcription, detectedLanguage } = await response.json()
@@ -131,67 +135,127 @@ export default function RecordInterface({ sourceLanguages, targetLanguage }: Rec
     console.log('Final duration:', finalDuration)
     setIsProcessing(true)
     try {
-      // First get the user ID since we need it for the file path
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('No user found')
+      console.log('Uploading audio file locally...')
+      const formData = new FormData()
+      formData.append('file', audioBlob, 'recording.webm')
+      
+      const uploadRes = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error('Upload failed')
+      
+      const { url: publicUrl, filename } = await uploadRes.json()
+      console.log('Audio file uploaded successfully to:', publicUrl)
 
-      console.log('Uploading audio file...')
-      // 1. Upload audio file to Supabase Storage with user ID in path
-      const fileName = `${user.id}/recordings/${Date.now()}.webm`
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('audio')
-        .upload(fileName, audioBlob)
-
-      if (uploadError) throw uploadError
-      console.log('Audio file uploaded successfully')
-
-      // 2. Get the public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('audio')
-        .getPublicUrl(fileName)
-
-      // 3. Transcribe the audio first to get the detected language
+      // 3. Transcribe the audio and enforce source languages
       console.log('Starting transcription...')
       setIsTranscribing(true)
-      const { transcription, detectedLanguage } = await transcribeAudio(fileName)
+      const { transcription, detectedLanguage } = await transcribeAudio(publicUrl, sourceLanguages)
       console.log('Transcription completed:', transcription)
       console.log('Detected language:', detectedLanguage)
 
-      // Verify the detected language is one of the allowed source languages
-      if (!sourceLanguages.includes(detectedLanguage)) {
-        throw new Error(`Detected language ${detectedLanguage} is not one of the allowed source languages: ${sourceLanguages.join(', ')}`)
+      console.log('Creating database record...')
+      const recordData = {
+        title: `Recording ${new Date().toLocaleString()}`,
+        audio_url: publicUrl,
+        language: detectedLanguage,
+        duration: finalDuration,
+        transcription,
+        status: 'new',
+        metadata: {
+          source_languages: sourceLanguages,
+          target_language: targetLanguage,
+          recording_time: finalDuration,
+          detected_language: detectedLanguage
+        }
       }
 
-      console.log('Creating database record...')
-      // 4. Create recording record in database with detected language
-      const { data: recording, error: dbError } = await supabase
-        .from('recordings')
-        .insert({
-          user_id: user.id,
-          title: `Recording ${new Date().toLocaleString()}`,
-          audio_url: publicUrl,
-          language: detectedLanguage,
-          duration: finalDuration,
-          transcription,
-          status: 'new',
-          metadata: {
-            source_languages: sourceLanguages,
-            target_language: targetLanguage,
-            recording_time: finalDuration,
-            detected_language: detectedLanguage
-          }
-        })
-        .select()
-        .single()
-
-      if (dbError) throw dbError
-      console.log('Database record created successfully')
+      const recording: any = await createRecording(recordData)
 
       setCompletedRecording(recording)
       toast({
         title: "Success",
         description: "Recording saved and transcribed successfully.",
       })
+
+      // Automate Analysis and Translation
+      setIsAnalyzing(true)
+      try {
+        console.log('Automated analysis started...')
+        const analyzeResponse = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            transcription,
+            language: detectedLanguage,
+          }),
+        })
+
+        if (!analyzeResponse.ok) throw new Error('Failed to analyze recording')
+        const analyzeData = await analyzeResponse.json()
+        const analyzedItems = analyzeData.items
+
+        // Save analysis to db silently
+        await saveAnalysis(recording.id, analyzedItems)
+        
+        // Translate and add to vocabulary
+        const dynamicAnalysisData: any = await getAnalysisData(recording.id)
+        const existingWords = new Set(dynamicAnalysisData?.existingWords || [])
+        
+        const newItems = analyzedItems.filter((item: any) => !existingWords.has(item.text.toLowerCase()))
+
+        if (newItems.length > 0) {
+          console.log(`Starting translation for ${newItems.length} new items`)
+          const translateResponse = await fetch('/api/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              items: newItems.map((item: any) => ({
+                text: item.text,
+                type: item.type,
+              })),
+              sourceLanguage: detectedLanguage,
+              targetLanguage,
+            }),
+          })
+          if (!translateResponse.ok) throw new Error('Failed to translate items')
+          const translationData = await translateResponse.json()
+          
+          const vocabularyItems = newItems.map((item: any, index: number) => {
+            const translation = translationData.translations[index]
+            return {
+              word: item.text,
+              translation: translation.translation,
+              language: detectedLanguage,
+              target_language: targetLanguage,
+              context: translation.explanation || null,
+              example_sentence: item.type === 'sentence' ? item.text : null,
+              metadata: {
+                type: item.type,
+                recording_id: recording.id,
+              }
+            }
+          })
+
+          await createMultipleVocabulary(vocabularyItems)
+          setNewVocabularyAdded(vocabularyItems)
+          toast({
+            title: "Vocabulary Updated",
+            description: `Automatically added ${vocabularyItems.length} new expressions.`,
+          })
+        } else {
+          toast({
+            title: "Analysis Complete",
+            description: "No brand new vocabulary to add.",
+          })
+        }
+      } catch (analyzeErr) {
+        console.error('Error during automated analysis:', analyzeErr)
+      } finally {
+        setIsAnalyzing(false)
+      }
+
     } catch (error) {
       console.error('Error processing recording:', error)
       toast({
@@ -210,29 +274,7 @@ export default function RecordInterface({ sourceLanguages, targetLanguage }: Rec
 
     try {
       if (!audioRef.current) {
-        // Get a fresh download URL for the audio file
-        const supabase = createClient();
-        
-        // Extract the path from the public URL correctly
-        // The URL format is like: https://xxx.supabase.co/storage/v1/object/public/audio/user-id/recordings/timestamp.webm
-        const storagePath = completedRecording.audio_url
-          .split('/audio/')[1] // Get everything after 'audio/'
-          .replace(/\?.*$/, ''); // Remove any query parameters
-
-        console.log('Requesting signed URL for path:', storagePath);
-        
-        const { data, error } = await supabase.storage
-          .from('audio')
-          .createSignedUrl(storagePath, 3600); // 1 hour expiry
-
-        if (error || !data?.signedUrl) {
-          console.error('Error creating signed URL:', error);
-          throw new Error('Failed to get audio URL');
-        }
-
-        console.log('Got signed URL:', data.signedUrl);
-
-        audioRef.current = new Audio(data.signedUrl);
+        audioRef.current = new Audio(completedRecording.audio_url);
         audioRef.current.onended = () => setIsPlaying(false);
         audioRef.current.onerror = (e) => {
           console.error('Audio playback error:', e);
@@ -268,6 +310,7 @@ export default function RecordInterface({ sourceLanguages, targetLanguage }: Rec
 
   const resetRecording = () => {
     setCompletedRecording(null);
+    setNewVocabularyAdded([]);
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
@@ -343,12 +386,12 @@ export default function RecordInterface({ sourceLanguages, targetLanguage }: Rec
                       size="lg"
                       variant={isRecording ? "destructive" : "default"}
                       onClick={isRecording ? stopRecording : startRecording}
-                      disabled={isProcessing || isTranscribing}
+                      disabled={isProcessing || isTranscribing || isAnalyzing}
                       className="w-32 h-32 rounded-full relative"
                     >
                       {isRecording ? (
                         <Square className="h-8 w-8" />
-                      ) : isTranscribing ? (
+                      ) : (isTranscribing || isAnalyzing) ? (
                         <Loader2 className="h-8 w-8 animate-spin" />
                       ) : (
                         <Mic className="h-8 w-8" />
@@ -366,6 +409,13 @@ export default function RecordInterface({ sourceLanguages, targetLanguage }: Rec
                       <div className="text-sm text-muted-foreground flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         Transcribing audio...
+                      </div>
+                    )}
+                    
+                    {isAnalyzing && (
+                      <div className="text-sm text-muted-foreground flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Extracting and translating new vocabulary...
                       </div>
                     )}
                   </div>
@@ -419,6 +469,39 @@ export default function RecordInterface({ sourceLanguages, targetLanguage }: Rec
                       <p className="text-sm whitespace-pre-wrap">{completedRecording.transcription}</p>
                     </Card>
                   </div>
+                  
+                  {isAnalyzing && (
+                     <div className="flex flex-col items-center justify-center p-8 space-y-4">
+                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                       <p className="text-sm text-muted-foreground">Extracting and learning new vocabulary...</p>
+                     </div>
+                  )}
+
+                  {!isAnalyzing && newVocabularyAdded.length > 0 && (
+                    <div className="space-y-4 mt-6">
+                      <h3 className="text-sm font-medium">New Vocabulary Acquired</h3>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {newVocabularyAdded.map((vocab, index) => (
+                           <Card key={index} className="flex flex-col p-4 border-l-4 border-l-primary">
+                             <div className="flex justify-between items-start mb-2">
+                               <span className="font-semibold">{vocab.word}</span>
+                               {vocab.metadata?.type && (
+                                 <Badge variant="outline" className="text-xs">
+                                   {vocab.metadata.type}
+                                 </Badge>
+                               )}
+                             </div>
+                             <span className="text-sm text-muted-foreground mb-1">{vocab.translation}</span>
+                             {vocab.context && (
+                               <span className="text-xs text-muted-foreground opacity-80 mt-1 italic">
+                                 {vocab.context}
+                               </span>
+                             )}
+                           </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -497,4 +580,4 @@ export default function RecordInterface({ sourceLanguages, targetLanguage }: Rec
       </AccordionItem>
     </Accordion>
   )
-} 
+}

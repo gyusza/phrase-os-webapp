@@ -12,13 +12,13 @@ import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { User, Globe, Bell, CreditCard } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
-import { createClient } from "@/lib/supabase/client"
+import { getUserProfile, getUserSettings, updateUserProfile, updateUserSettings } from "@/lib/actions/settings"
 
 interface Profile {
   id: string
   email: string
   full_name: string
-  avatar_url: string
+  avatar_url?: string | null
 }
 
 interface UserSettings {
@@ -26,11 +26,11 @@ interface UserSettings {
   source_languages: string[]
   target_language: string
   notification_preferences: {
-    email: boolean
-    push: boolean
-  }
+    email?: boolean
+    push?: boolean
+  } | any
   theme: string
-  daily_vocabulary_goal?: number
+  daily_vocabulary_goal?: number | null
   created_at?: string
   updated_at?: string
 }
@@ -41,33 +41,24 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const { toast } = useToast()
-  const supabase = createClient()
 
   const fetchProfileAndSettings = useCallback(async () => {
     try {
       setIsLoading(true)
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
 
-      // Fetch profile data
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-
-      if (profileError) throw profileError
+      const profileData: any = await getUserProfile()
       setProfile(profileData)
 
-      // Fetch settings data
-      const { data: settingsData, error: settingsError } = await supabase
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', user.id)
-        .single()
-
-      if (settingsError && settingsError.code !== 'PGRST116') throw settingsError
-      setSettings(settingsData || null)
+      const settingsData: any = await getUserSettings()
+      
+      setSettings({
+        ...settingsData,
+        source_languages: Array.isArray(settingsData.source_languages) 
+          ? settingsData.source_languages 
+          : typeof settingsData.source_languages === 'string' 
+            ? JSON.parse(settingsData.source_languages)
+            : ['en']
+      })
 
     } catch (error) {
       console.error('Error fetching profile and settings:', error)
@@ -79,7 +70,7 @@ export default function SettingsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [supabase, toast])
+  }, [toast])
 
   useEffect(() => {
     fetchProfileAndSettings()
@@ -90,20 +81,14 @@ export default function SettingsPage() {
 
     setIsSaving(true)
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
+      await updateUserProfile({
           full_name: profile.full_name,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', profile.id)
+      })
 
-      if (error) throw error
-
-    toast({
-      title: "Profile updated",
-      description: "Your profile information has been saved.",
-    })
+      toast({
+        title: "Profile updated",
+        description: "Your profile information has been saved.",
+      })
     } catch (error) {
       console.error('Error updating profile:', error)
       toast({
@@ -121,21 +106,15 @@ export default function SettingsPage() {
 
     setIsSaving(true)
     try {
-      const { error } = await supabase
-        .from('user_settings')
-        .update({
+      await updateUserSettings({
           source_languages: settings.source_languages,
           target_language: settings.target_language,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', settings.user_id)
+      })
 
-      if (error) throw error
-
-    toast({
-      title: "Language settings updated",
-      description: "Your language preferences have been saved.",
-    })
+      toast({
+        title: "Language settings updated",
+        description: "Your language preferences have been saved.",
+      })
     } catch (error) {
       console.error('Error updating language settings:', error)
       toast({
@@ -153,20 +132,14 @@ export default function SettingsPage() {
 
     setIsSaving(true)
     try {
-      const { error } = await supabase
-        .from('user_settings')
-        .update({
+      await updateUserSettings({
           notification_preferences: settings.notification_preferences,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', settings.user_id)
+      })
 
-      if (error) throw error
-
-    toast({
-      title: "Notification settings updated",
-      description: "Your notification preferences have been saved.",
-    })
+      toast({
+        title: "Notification settings updated",
+        description: "Your notification preferences have been saved.",
+      })
     } catch (error) {
       console.error('Error updating notification settings:', error)
       toast({
@@ -241,14 +214,6 @@ export default function SettingsPage() {
                     type="email" 
                     value={profile?.email || ''}
                     disabled
-                  />
-                </div>
-                  <div className="space-y-2">
-                  <Label htmlFor="avatar-url">Avatar URL</Label>
-                  <Input 
-                    id="avatar-url" 
-                    value={profile?.avatar_url || ''}
-                    onChange={(e) => setProfile(prev => prev ? { ...prev, avatar_url: e.target.value } : null)}
                   />
                 </div>
               </div>

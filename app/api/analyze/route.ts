@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import OpenAI from 'openai'
+import { GoogleGenAI } from '@google/genai'
 
 interface AnalyzedItem {
   id?: string
@@ -8,12 +8,12 @@ interface AnalyzedItem {
   explanation: string
 }
 
-interface OpenAIResponse {
+interface GeminiResponse {
   items: AnalyzedItem[]
 }
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
 })
 
 export async function POST(request: Request) {
@@ -47,35 +47,34 @@ export async function POST(request: Request) {
       ]
     }`
 
-    console.log('Sending request to OpenAI...')
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
-      messages: [
-        {
-          role: "system",
-          content: `You are a language learning assistant. Analyze the text and extract important language elements.
-          Provide explanations in English only, even for non-English content.
-          Keep explanations very concise (max 10 words).
-          Focus on essential vocabulary and expressions.`
-        },
+    console.log('Sending request to Gemini...')
+    const completion = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
         {
           role: "user",
-          content: prompt
+          parts: [{ text: prompt }]
         }
       ],
-      response_format: { type: "json_object" },
-      temperature: 0.7,
+      config: {
+        systemInstruction: `You are a language learning assistant. Analyze the text and extract important language elements.
+          Provide explanations in English only, even for non-English content.
+          Keep explanations very concise (max 10 words).
+          Focus on essential vocabulary and expressions.`,
+        responseMimeType: "application/json",
+        temperature: 0.7,
+      }
     })
 
-    console.log('Received response from OpenAI')
-    const response = completion.choices[0].message.content
-    console.log('Response content:', response)
+    console.log('Received response from Gemini')
+    const responseText = completion.text
+    console.log('Response content:', responseText)
 
-    if (!response) {
-      throw new Error('No response from OpenAI')
+    if (!responseText) {
+      throw new Error('No response from Gemini')
     }
 
-    const data = JSON.parse(response) as OpenAIResponse
+    const data = JSON.parse(responseText) as GeminiResponse
     
     // Validate and ensure explanations are in English
     if (!data.items || !Array.isArray(data.items)) {

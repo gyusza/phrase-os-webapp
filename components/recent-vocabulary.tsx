@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Volume2 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { useEffect, useState, useCallback } from "react"
-import { createClient } from "@/lib/supabase/client"
+import { getVocabulary } from "@/lib/actions/vocabulary"
 import { useToast } from "@/hooks/use-toast"
 import Image from "next/image"
 
@@ -17,46 +17,12 @@ interface VocabularyItem {
   target_language: string
   metadata: {
     category?: string
-  }
+  } | any
 }
 
-export default function RecentVocabulary() {
-  const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+export default function RecentVocabulary({ initialVocabulary }: { initialVocabulary: VocabularyItem[] }) {
+  const [vocabulary, setVocabulary] = useState<VocabularyItem[]>(initialVocabulary)
   const { toast } = useToast()
-  const supabase = createClient()
-
-  const fetchVocabulary = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
-
-      const { data, error } = await supabase
-        .from('vocabulary')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(5)
-
-      if (error) throw error
-
-      setVocabulary(data || [])
-    } catch (error) {
-      console.error('Error fetching vocabulary:', error)
-      toast({
-        title: "Error",
-        description: "Failed to load vocabulary items",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }, [supabase, toast])
-
-  useEffect(() => {
-    fetchVocabulary()
-  }, [fetchVocabulary])
 
   const playAudio = (text: string, language: string) => {
     const utterance = new SpeechSynthesisUtterance(text)
@@ -99,13 +65,7 @@ export default function RecentVocabulary() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="text-center py-4 text-muted-foreground">
-        Loading vocabulary...
-      </div>
-    )
-  }
+
 
   if (vocabulary.length === 0) {
     return (
@@ -173,4 +133,4 @@ export default function RecentVocabulary() {
       ))}
     </div>
   )
-} 
+}

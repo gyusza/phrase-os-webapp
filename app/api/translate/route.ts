@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import OpenAI from 'openai'
+import { GoogleGenAI } from '@google/genai'
 
 interface TranslationItem {
   text: string
@@ -12,8 +12,8 @@ interface TranslationResult {
   explanation: string
 }
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
 })
 
 export async function POST(request: Request) {
@@ -62,40 +62,39 @@ export async function POST(request: Request) {
       ]
     }`
 
-    console.log('Sending request to OpenAI...')
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
-      messages: [
-        {
-          role: "system",
-          content: `You are a language learning assistant. Translate the items from ${sourceLanguage} to ${targetLanguage}.
-          Provide explanations in English only, even for non-English content.
-          Keep explanations very concise (max 10 words).
-          Focus on cultural and contextual nuances.`
-        },
+    console.log('Sending request to Gemini...')
+    const completion = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
         {
           role: "user",
-          content: prompt
+          parts: [{ text: prompt }]
         }
       ],
-      response_format: { type: "json_object" },
-      temperature: 0.7,
+      config: {
+        systemInstruction: `You are a language learning assistant. Translate the items from ${sourceLanguage} to ${targetLanguage}.
+          Provide explanations in English only, even for non-English content.
+          Keep explanations very concise (max 10 words).
+          Focus on cultural and contextual nuances.`,
+        responseMimeType: "application/json",
+        temperature: 0.7,
+      }
     })
 
-    console.log('Received response from OpenAI')
-    const responseContent = completion.choices[0].message.content
+    console.log('Received response from Gemini')
+    const responseContent = completion.text
     console.log('Response content:', responseContent)
 
     if (!responseContent) {
-      throw new Error('No response from OpenAI')
+      throw new Error('No response from Gemini API')
     }
 
     const parsedResponse = JSON.parse(responseContent)
     console.log('Parsed response:', parsedResponse)
 
     if (!parsedResponse.translations || !Array.isArray(parsedResponse.translations)) {
-      console.error('Invalid response format from OpenAI:', parsedResponse)
-      throw new Error('Invalid response format from OpenAI')
+      console.error('Invalid response format from Gemini:', parsedResponse)
+      throw new Error('Invalid response format from Gemini')
     }
 
     // Validate and ensure explanations are in English
