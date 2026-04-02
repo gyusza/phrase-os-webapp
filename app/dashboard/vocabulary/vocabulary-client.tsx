@@ -304,7 +304,7 @@ export default function VocabularyPage() {
                   <Label htmlFor="language">Source Language <span className="text-destructive">*</span></Label>
                   <select
                     id="language"
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                     value={newPhrase.language}
                     onChange={(e) => setNewPhrase(prev => ({ ...prev, language: e.target.value }))}
                   >
@@ -317,7 +317,7 @@ export default function VocabularyPage() {
                   <Label htmlFor="target_language">Target Language <span className="text-destructive">*</span></Label>
                   <select
                     id="target_language"
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                     value={newPhrase.target_language}
                     onChange={(e) => setNewPhrase(prev => ({ ...prev, target_language: e.target.value }))}
                   >
@@ -422,7 +422,7 @@ export default function VocabularyPage() {
                     <Label htmlFor="recording-filter" className="text-sm text-muted-foreground whitespace-nowrap">Source:</Label>
                     <select
                       id="recording-filter"
-                      className="flex h-9 w-full sm:w-[250px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      className="flex h-9 w-full sm:w-[250px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
                       value={selectedRecordingId}
                       onChange={(e) => setSelectedRecordingId(e.target.value)}
                     >

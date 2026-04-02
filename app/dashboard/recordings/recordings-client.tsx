@@ -285,7 +285,7 @@ export default function RecordingsPage() {
                             </div>
                           )}
                           <div className="mt-3">
-                             <audio controls preload="none" src={recording.audio_url} className="h-8 w-full max-w-[280px] outline-none" />
+                             <audio controls preload="none" src={recording.audio_url} className="h-8 w-full max-w-[280px] outline-hidden" />
                           </div>
                         </div>
                         <div className="flex gap-2">

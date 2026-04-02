@@ -1,7 +1,7 @@
 import {
   BarChart2,
   BookOpen,
-  Chrome,
+  Globe,
   Loader2,
   LogOut,
   Mail,
@@ -14,7 +14,7 @@ import {
 export const Icons = {
   barChart: BarChart2,
   book: BookOpen,
-  google: Chrome,
+  google: Globe,
   spinner: Loader2,
   logout: LogOut,
   mail: Mail,

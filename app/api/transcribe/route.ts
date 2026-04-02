@@ -45,6 +45,17 @@ export async function POST(request: Request) {
       )
     }
 
+    // Detect mimeType from common extensions
+    const ext = path.extname(filePath).toLowerCase()
+    let detectedMimeType = "audio/webm"
+    if (ext === ".mp4") detectedMimeType = "video/mp4"
+    else if (ext === ".m4a") detectedMimeType = "audio/mp4"
+    else if (ext === ".mp3" || ext === ".mpeg") detectedMimeType = "audio/mpeg"
+    else if (ext === ".wav") detectedMimeType = "audio/wav"
+    else if (ext === ".ogg") detectedMimeType = "audio/ogg"
+
+    console.log(`[API Transcribe] Using inferred mimeType: ${detectedMimeType}`)
+
     // Transcribe the audio using Gemini with language detection
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -62,7 +73,7 @@ If the detected language code IS one of the accepted source languages, ` : ''}tr
             { 
               inlineData: { 
                 data: fileBuffer.toString("base64"), 
-                mimeType: "audio/webm" 
+                mimeType: detectedMimeType 
               } 
             }
           ]

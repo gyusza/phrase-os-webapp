@@ -16,6 +16,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { createRecording } from "@/lib/actions/recordings"
 import { getAnalysisData, saveAnalysis } from "@/lib/actions/analyze"
 import { createMultipleVocabulary } from "@/lib/actions/vocabulary"
+import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 interface RecordInterfaceProps {
   sourceLanguages: string[]
@@ -44,6 +47,10 @@ export function RecordInterface({ sourceLanguages, targetLanguage }: RecordInter
   const [pendingVocabulary, setPendingVocabulary] = useState<any[]>([])
   const [checkedVocabularyIndices, setCheckedVocabularyIndices] = useState<Set<number>>(new Set())
   const [isImporting, setIsImporting] = useState(false)
+  
+  const [pastedText, setPastedText] = useState("")
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -162,13 +169,96 @@ export function RecordInterface({ sourceLanguages, targetLanguage }: RecordInter
     }
   }
 
+  const finalizeProcessing = async (recording: any, transcription: string, detectedLanguage: string) => {
+    setCompletedRecording(recording)
+    setIsAnalyzing(true)
+    try {
+      console.log('Automated analysis started...')
+      const analyzeResponse = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcription,
+          language: detectedLanguage,
+        }),
+      })
+
+      if (!analyzeResponse.ok) throw new Error('Failed to analyze content')
+      const analyzeData = await analyzeResponse.json()
+      const analyzedItems = analyzeData.items
+
+      // Save analysis to db silently
+      await saveAnalysis(recording.id, analyzedItems)
+      
+      // Translate and add to vocabulary
+      const dynamicAnalysisData: any = await getAnalysisData(recording.id)
+      const existingWords = new Set(dynamicAnalysisData?.existingWords || [])
+      
+      const newItems = analyzedItems.filter((item: any) => !existingWords.has(item.text.toLowerCase()))
+
+      if (newItems.length > 0) {
+        console.log(`Starting translation for ${newItems.length} new items`)
+        const translateResponse = await fetch('/api/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: newItems.map((item: any) => ({
+              text: item.text,
+              type: item.type,
+            })),
+            sourceLanguage: detectedLanguage,
+            targetLanguage,
+          }),
+        })
+        if (!translateResponse.ok) throw new Error('Failed to translate items')
+        const translationData = await translateResponse.json()
+        
+        const vocabularyItems = newItems.map((item: any, index: number) => {
+          const translation = translationData.translations[index]
+          return {
+            word: item.text,
+            translation: translation.translation,
+            language: detectedLanguage,
+            target_language: targetLanguage,
+            context: translation.explanation || null,
+            example_sentence: item.type === 'sentence' ? item.text : null,
+            metadata: {
+              type: item.type,
+              recording_id: recording.id,
+            }
+          }
+        })
+
+        setPendingVocabulary(vocabularyItems)
+        setCheckedVocabularyIndices(new Set(vocabularyItems.map((_: any, i: number) => i)))
+        toast({
+          title: "Analysis Ready",
+          description: `Extracted ${vocabularyItems.length} new expressions for review.`,
+        })
+      } else {
+        toast({
+          title: "Analysis Complete",
+          description: "No brand new vocabulary to add.",
+        })
+      }
+    } catch (analyzeErr) {
+      console.error('Error during automated analysis:', analyzeErr)
+      toast({
+        title: "Analysis Error",
+        description: "Failed to extract vocabulary. You can try again from the recordings list.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsAnalyzing(false)
+      setIsProcessing(false)
+      setIsTranscribing(false)
+    }
+  }
+
   const handleRecordingComplete = async (audioBlob: Blob, recordedDuration: number) => {
-    console.log('Processing recording...')
-    console.log('Final duration:', recordedDuration)
     setIsProcessing(true)
     try {
       console.log('Uploading audio file locally...')
-      
       let extension = 'webm'
       if (audioBlob.type.includes('mp4')) extension = 'mp4'
       else if (audioBlob.type.includes('ogg')) extension = 'ogg'
@@ -184,17 +274,10 @@ export function RecordInterface({ sourceLanguages, targetLanguage }: RecordInter
       })
       if (!uploadRes.ok) throw new Error('Upload failed')
       
-      const { url: publicUrl, filename } = await uploadRes.json()
-      console.log('Audio file uploaded successfully to:', publicUrl)
-
-      // 3. Transcribe the audio and enforce source languages
-      console.log('Starting transcription...')
+      const { url: publicUrl } = await uploadRes.json()
       setIsTranscribing(true)
       const { transcription, detectedLanguage } = await transcribeAudio(publicUrl, sourceLanguages)
-      console.log('Transcription completed:', transcription)
-      console.log('Detected language:', detectedLanguage)
 
-      console.log('Creating database record...')
       const recordData = {
         title: `Recording ${new Date().toLocaleString()}`,
         audio_url: publicUrl,
@@ -211,100 +294,121 @@ export function RecordInterface({ sourceLanguages, targetLanguage }: RecordInter
       }
 
       const recording: any = await createRecording(recordData)
-
-      setCompletedRecording(recording)
-      toast({
-        title: "Success",
-        description: "Recording saved and transcribed successfully.",
-      })
-
-      // Automate Analysis and Translation
-      setIsAnalyzing(true)
-      try {
-        console.log('Automated analysis started...')
-        const analyzeResponse = await fetch('/api/analyze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            transcription,
-            language: detectedLanguage,
-          }),
-        })
-
-        if (!analyzeResponse.ok) throw new Error('Failed to analyze recording')
-        const analyzeData = await analyzeResponse.json()
-        const analyzedItems = analyzeData.items
-
-        // Save analysis to db silently
-        await saveAnalysis(recording.id, analyzedItems)
-        
-        // Translate and add to vocabulary
-        const dynamicAnalysisData: any = await getAnalysisData(recording.id)
-        const existingWords = new Set(dynamicAnalysisData?.existingWords || [])
-        
-        const newItems = analyzedItems.filter((item: any) => !existingWords.has(item.text.toLowerCase()))
-
-        if (newItems.length > 0) {
-          console.log(`Starting translation for ${newItems.length} new items`)
-          const translateResponse = await fetch('/api/translate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              items: newItems.map((item: any) => ({
-                text: item.text,
-                type: item.type,
-              })),
-              sourceLanguage: detectedLanguage,
-              targetLanguage,
-            }),
-          })
-          if (!translateResponse.ok) throw new Error('Failed to translate items')
-          const translationData = await translateResponse.json()
-          
-          const vocabularyItems = newItems.map((item: any, index: number) => {
-            const translation = translationData.translations[index]
-            return {
-              word: item.text,
-              translation: translation.translation,
-              language: detectedLanguage,
-              target_language: targetLanguage,
-              context: translation.explanation || null,
-              example_sentence: item.type === 'sentence' ? item.text : null,
-              metadata: {
-                type: item.type,
-                recording_id: recording.id,
-              }
-            }
-          })
-
-          setPendingVocabulary(vocabularyItems)
-          setCheckedVocabularyIndices(new Set(vocabularyItems.map((_, i) => i)))
-          toast({
-            title: "Analysis Ready",
-            description: `Extracted ${vocabularyItems.length} new expressions for review.`,
-          })
-        } else {
-          toast({
-            title: "Analysis Complete",
-            description: "No brand new vocabulary to add.",
-          })
-        }
-      } catch (analyzeErr) {
-        console.error('Error during automated analysis:', analyzeErr)
-      } finally {
-        setIsAnalyzing(false)
-      }
-
+      await finalizeProcessing(recording, transcription, detectedLanguage)
     } catch (error) {
       console.error('Error processing recording:', error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to process recording. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to process recording.",
         variant: "destructive",
       })
-    } finally {
       setIsProcessing(false)
       setIsTranscribing(false)
+    }
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsProcessing(true)
+    setIsUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      const uploadRes = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error('Upload failed')
+      
+      const { url: publicUrl } = await uploadRes.json()
+      setIsTranscribing(true)
+      setIsUploading(false)
+      
+      const { transcription, detectedLanguage } = await transcribeAudio(publicUrl, sourceLanguages)
+
+      const recordData = {
+        title: `Upload: ${file.name}`,
+        audio_url: publicUrl,
+        language: detectedLanguage,
+        duration: 0, // Duration detection for uploads is complex, defaulting to 0
+        transcription,
+        status: 'new',
+        metadata: {
+          file_name: file.name,
+          source_languages: sourceLanguages,
+          target_language: targetLanguage,
+          detected_language: detectedLanguage
+        }
+      }
+
+      const recording: any = await createRecording(recordData)
+      await finalizeProcessing(recording, transcription, detectedLanguage)
+    } catch (error) {
+      console.error('Error processing upload:', error)
+      toast({
+        title: "Upload Error",
+        description: error instanceof Error ? error.message : "Failed to process file.",
+        variant: "destructive",
+      })
+      setIsProcessing(false)
+      setIsTranscribing(false)
+      setIsUploading(false)
+    }
+  }
+
+  const handleTextSubmit = async () => {
+    if (!pastedText.trim()) return
+
+    setIsProcessing(true)
+    setIsAnalyzing(true)
+    try {
+      // For text, we don't have audio, so we create a dummy record
+      // We still use Gemini to analyze and detect language
+      const recordData = {
+        title: `Text Snippet ${new Date().toLocaleString()}`,
+        audio_url: "text://pasted",
+        language: "auto", // Will be updated after analysis
+        duration: 0,
+        transcription: pastedText,
+        status: 'new',
+        metadata: {
+          input_method: "paste",
+          source_languages: sourceLanguages,
+          target_language: targetLanguage,
+        }
+      }
+
+      // First analysis to get language and items
+      const analyzeResponse = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcription: pastedText,
+          language: "any", // Tell Gemini to auto-detect
+        }),
+      })
+
+      if (!analyzeResponse.ok) throw new Error('Failed to analyze text')
+      const analyzeData = await analyzeResponse.json()
+      
+      // We take the language from the analysis or default to the first source lang
+      const detectedLanguage = analyzeData.detectedLanguage || sourceLanguages[0] || "en"
+      recordData.language = detectedLanguage
+
+      const recording: any = await createRecording(recordData)
+      await finalizeProcessing(recording, pastedText, detectedLanguage)
+    } catch (error) {
+      console.error('Error processing text:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to process text.",
+        variant: "destructive",
+      })
+      setIsProcessing(false)
+      setIsAnalyzing(false)
     }
   }
 
@@ -486,7 +590,7 @@ export function RecordInterface({ sourceLanguages, targetLanguage }: RecordInter
                     <audio 
                       controls 
                       src={completedRecording.audio_url} 
-                      className="w-full max-w-md h-10 outline-none" 
+                      className="w-full max-w-md h-10 outline-hidden" 
                     />
                     <Button
                       variant="outline"
@@ -603,14 +707,43 @@ export function RecordInterface({ sourceLanguages, targetLanguage }: RecordInter
                   <Upload className="h-12 w-12 text-primary" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium">Coming Soon</h3>
+                  <h3 className="text-lg font-medium">Select a file</h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    You'll soon be able to upload audio files directly for analysis
+                    Supports MP3, WAV, M4A, and MP4 (video)
                   </p>
                 </div>
-                <Button disabled className="mt-2">
-                  Upload Audio
+                <Input
+                  type="file"
+                  accept="audio/*,video/mp4,video/quicktime"
+                  className="hidden"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  disabled={isProcessing}
+                />
+                <Button 
+                  onClick={() => fileInputRef.current?.click()} 
+                  disabled={isProcessing}
+                  className="mt-2"
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Choose File
+                    </>
+                  )}
                 </Button>
+                
+                {(isTranscribing || isAnalyzing) && !isUploading && (
+                  <div className="text-sm text-muted-foreground flex flex-col items-center gap-2 mt-4">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <span>{isTranscribing ? "Transcribing audio..." : "Extracting vocabulary..."}</span>
+                  </div>
+                )}
               </div>
             </CardContent>
           </AccordionContent>
@@ -628,26 +761,38 @@ export function RecordInterface({ sourceLanguages, targetLanguage }: RecordInter
             </CardDescription>
           </CardHeader>
           <AccordionContent>
-            <CardContent className="py-8">
-              <div className="flex flex-col items-center justify-center space-y-4 text-center">
-                <div className="rounded-full bg-primary/10 p-6">
-                  <FileText className="h-12 w-12 text-primary" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-medium">Coming Soon</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    You'll soon be able to analyze text directly by uploading documents or pasting content
+            <CardContent className="py-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="paste-text">Paste text content</Label>
+                  <Textarea
+                    id="paste-text"
+                    placeholder="Enter or paste text you want to analyze for vocabulary..."
+                    className="min-h-[200px]"
+                    value={pastedText}
+                    onChange={(e) => setPastedText(e.target.value)}
+                    disabled={isProcessing}
+                  />
+                  <p className="text-[10px] text-muted-foreground text-right italic">
+                    Gemini will automatically detect the language for you.
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    Supported formats will include: TXT, PDF, DOC, and more
-                  </p>
                 </div>
-                <div className="flex gap-2">
-                  <Button disabled>
-                    Upload Document
-                  </Button>
-                  <Button disabled variant="outline">
-                    Paste Text
+                <div className="flex justify-end">
+                  <Button 
+                    onClick={handleTextSubmit} 
+                    disabled={isProcessing || !pastedText.trim()}
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Analyzing...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="mr-2 h-4 w-4" />
+                        Analyze Text
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>

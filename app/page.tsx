@@ -33,7 +33,7 @@ export default function LandingPage() {
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="py-20 md:py-32 bg-gradient-to-b from-background to-muted">
+        <section className="py-20 md:py-32 bg-linear-to-b from-background to-muted">
           <div className="container flex flex-col items-center text-center">
             <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6">Learn a Language the Smart Way</h1>
             <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mb-10">

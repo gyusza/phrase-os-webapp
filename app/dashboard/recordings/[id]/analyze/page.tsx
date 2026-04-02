@@ -332,7 +332,7 @@ export default function AnalyzeRecordingPage() {
               {formatDate(recording.created_at)}
             </p>
           </div>
-          <audio controls preload="none" src={recording.audio_url} className="h-10 w-full max-w-sm outline-none" />
+          <audio controls preload="none" src={recording.audio_url} className="h-10 w-full max-w-sm outline-hidden" />
         </div>
 
         <Card>

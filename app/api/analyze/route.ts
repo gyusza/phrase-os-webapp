@@ -27,7 +27,8 @@ export async function POST(request: Request) {
       )
     }
 
-    const prompt = `Analyze this ${language} text and extract important words, expressions, and sentences. 
+    const prompt = `Analyze this text and extract important words, expressions, and sentences. 
+    ${language !== 'any' ? `The text is primarily in ${language}.` : 'First, detect which language this text is written in.'}
     For each item, provide a brief explanation in English of why it's valuable to learn.
     Focus on essential language elements that would be valuable for a language learner.
     Keep explanations very short (max 10 words) and in English only.
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
 
     Respond in this exact JSON format:
     {
+      "detectedLanguage": "2-letter ISO language code (e.g., 'da', 'hu', 'en')",
       "items": [
         {
           "id": "unique_id",
