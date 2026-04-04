@@ -1,7 +1,7 @@
-import { RecordInterface } from "@/components/record/record-interface"
+import { ScenarioCreationInterface } from "@/components/scenarios/scenario-interface"
 import { getUserSettings } from "@/lib/actions/settings"
 
-export default async function RecordPage() {
+export default async function CreateScenarioPage() {
   const settingsData: any = await getUserSettings()
   
   // Get source languages array or fallback
@@ -16,7 +16,7 @@ export default async function RecordPage() {
   return (
     <main className="flex-1 py-6">
       <div className="container max-w-4xl mx-auto px-4 md:px-6">
-        <RecordInterface sourceLanguages={sourceLanguages} targetLanguage={targetLanguage} />
+        <ScenarioCreationInterface sourceLanguages={sourceLanguages} targetLanguage={targetLanguage} />
       </div>
     </main>
   )

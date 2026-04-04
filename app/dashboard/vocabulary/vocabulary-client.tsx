@@ -6,14 +6,15 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { BookOpen, Search, Plus, Edit, Trash, Volume2, ArrowRight, Info } from 'lucide-react'
+import { BookOpen, Search, Plus, Pencil, Trash2, Volume2, ArrowRight, Info, Sparkles, AlertCircle } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
 import { getVocabulary, createVocabulary, updateVocabulary, deleteVocabulary } from "@/lib/actions/vocabulary"
-import { getRecordings } from "@/lib/actions/recordings"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { getScenarios } from "@/lib/actions/scenarios"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import Image from "next/image"
+import Link from "next/link"
 import {
   Tooltip,
   TooltipContent,
@@ -24,6 +25,8 @@ import {
 interface VocabularyItem {
   id: string
   user_id: string
+  scenario_id: string | null
+  scenario_title: string | null
   word: string
   translation: string
   language: string
@@ -43,6 +46,8 @@ const getFlagCode = (langCode: string): string => {
   const mapping: { [key: string]: string } = {
     'en': 'gb',
     'da': 'dk',
+    'hu': 'hu',
+    'de': 'de'
   }
   return mapping[langCode] || langCode
 }
@@ -52,6 +57,7 @@ const getLanguageName = (langCode: string): string => {
     'en': 'English',
     'da': 'Danish',
     'hu': 'Hungarian',
+    'de': 'German'
   }
   return mapping[langCode] || langCode.toUpperCase()
 }
@@ -59,9 +65,9 @@ const getLanguageName = (langCode: string): string => {
 export default function VocabularyPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([])
-  const [recordings, setRecordings] = useState<{id: string, title: string}[]>([])
+  const [scenarios, setScenarios] = useState<{id: string, title: string}[]>([])
   const [activeCategory, setActiveCategory] = useState("all")
-  const [selectedRecordingId, setSelectedRecordingId] = useState("all")
+  const [selectedScenarioId, setSelectedScenarioId] = useState("all")
   const [isLoading, setIsLoading] = useState(true)
   const [isDeleting, setIsDeleting] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState<string | null>(null)
@@ -71,7 +77,7 @@ export default function VocabularyPage() {
     word: '',
     translation: '',
     language: 'en',
-    target_language: 'hu',
+    target_language: 'da',
     context: '',
     example_sentence: '',
     metadata: {
@@ -86,12 +92,12 @@ export default function VocabularyPage() {
   const loadVocabulary = useCallback(async () => {
     try {
       setIsLoading(true)
-      const [vocabData, audioData] = await Promise.all([
+      const [vocabData, scenarioData] = await Promise.all([
         getVocabulary(),
-        getRecordings()
+        getScenarios()
       ])
       setVocabulary(vocabData as unknown as VocabularyItem[] || [])
-      setRecordings(audioData as any || [])
+      setScenarios(scenarioData as any || [])
     } catch (error) {
       console.error('Error fetching vocabulary:', error)
       toast({
@@ -121,6 +127,7 @@ export default function VocabularyPage() {
           word: editingItem.word,
           translation: editingItem.translation,
           context: editingItem.context,
+          example_sentence: editingItem.example_sentence,
           metadata: {
             ...editingItem.metadata,
             category: editingItem.metadata?.category || "uncategorized"
@@ -147,7 +154,25 @@ export default function VocabularyPage() {
     }
   }
 
-  const playAudio = (text: string, language: string) => {
+  const playAudio = async (text: string, language: string, isTarget: boolean = true) => {
+    if (isTarget) {
+      try {
+        const response = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, language })
+        })
+        const data = await response.json()
+        if (data.audio) {
+          const audio = new Audio(`data:${data.mimeType};base64,${data.audio}`)
+          audio.play()
+          return
+        }
+      } catch (error) {
+        console.error('Gemini TTS failed, falling back to browser TTS:', error)
+      }
+    }
+
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.rate = 0.8
     const voices = window.speechSynthesis.getVoices()
@@ -174,14 +199,13 @@ export default function VocabularyPage() {
       item.translation.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = activeCategory === "all" || item.metadata?.category === activeCategory
     
-    // Check recording ID match
-    const recId = item.metadata?.recording_id
-    const matchesRecording = 
-      selectedRecordingId === "all" || 
-      (selectedRecordingId === "manual" && !recId) || 
-      recId === selectedRecordingId
+    // Check scenario ID match
+    const matchesScenario = 
+      selectedScenarioId === "all" || 
+      (selectedScenarioId === "manual" && !item.scenario_id) || 
+      item.scenario_id === selectedScenarioId
 
-    return matchesSearch && matchesCategory && matchesRecording
+    return matchesSearch && matchesCategory && matchesScenario
   })
 
   const uniqueCategories = Array.from(new Set(vocabulary.map((item) => item.metadata?.category || 'uncategorized')))
@@ -238,7 +262,7 @@ export default function VocabularyPage() {
         word: '',
         translation: '',
         language: 'en',
-        target_language: 'hu',
+        target_language: 'da',
         context: '',
         example_sentence: '',
         metadata: {
@@ -263,22 +287,12 @@ export default function VocabularyPage() {
   }
 
   return (
-    <main className="flex-1 container py-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Vocabulary</h1>
-          <p className="text-muted-foreground">Manage your personalized vocabulary list.</p>
-        </div>
+    <div className="flex-1 space-y-4">
         <Dialog open={isAddingPhrase} onOpenChange={setIsAddingPhrase}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add Phrase
-            </Button>
-          </DialogTrigger>
           <DialogContent>
             <DialogHeader>
                <DialogTitle>Add New Phrase</DialogTitle>
+               <DialogDescription>Add a new word or expression to your vocabulary.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
@@ -311,6 +325,7 @@ export default function VocabularyPage() {
                     <option value="en">English</option>
                     <option value="da">Danish</option>
                     <option value="hu">Hungarian</option>
+                    <option value="de">German</option>
                   </select>
                 </div>
                 <div className="space-y-2">
@@ -324,6 +339,7 @@ export default function VocabularyPage() {
                     <option value="en">English</option>
                     <option value="da">Danish</option>
                     <option value="hu">Hungarian</option>
+                    <option value="de">German</option>
                   </select>
                 </div>
               </div>
@@ -368,7 +384,7 @@ export default function VocabularyPage() {
                     word: '',
                     translation: '',
                     language: 'en',
-                    target_language: 'hu',
+                    target_language: 'da',
                     context: '',
                     example_sentence: '',
                     metadata: {
@@ -388,52 +404,61 @@ export default function VocabularyPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <div className="space-y-1">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Vocabulary</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Manage your personalized vocabulary list.</p>
+        </div>
+        <Button onClick={() => setIsAddingPhrase(true)} className="w-full sm:w-auto h-11 sm:h-10 gap-2 font-bold">
+          <Plus className="h-4 w-4" />
+          Add Phrase
+        </Button>
       </div>
 
       <div className="grid gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Vocabulary</CardTitle>
+        <Card className="border-2 border-primary/5 shadow-sm">
+          <CardHeader className="pb-3 px-4 pt-4 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl">Your Vocabulary</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="search"
-                      placeholder="Search phrases or translations..."
-                      className="pl-8"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-                  <Tabs value={activeCategory} onValueChange={setActiveCategory} className="w-full sm:w-auto">
-                    <TabsList className="w-full grid grid-cols-3 sm:flex sm:w-auto">
-                      {categories.map((category) => (
-                        <TabsTrigger key={category} value={category} className="capitalize">
-                          {category}
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
-                  </Tabs>
+          <CardContent className="space-y-4 sm:space-y-6 px-3 sm:px-6 pb-6">
+            <div className="flex flex-col gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground outline-hidden" />
+                <Input
+                  type="search"
+                  placeholder="Search phrases or translations..."
+                  className="pl-9 h-11 sm:h-10 text-base sm:text-sm"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Tabs value={activeCategory} onValueChange={setActiveCategory} className="w-full sm:w-auto">
+                  <TabsList className="w-full grid grid-cols-3 sm:flex sm:w-auto h-10 sm:h-9">
+                    {categories.map((category) => (
+                      <TabsTrigger key={category} value={category} className="text-xs sm:text-sm capitalize font-bold">
+                        {category === 'all' ? 'All' : category}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <select
+                    id="scenario-filter"
+                    className="flex h-10 sm:h-9 w-full sm:w-[200px] rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring font-medium"
+                    value={selectedScenarioId}
+                    onChange={(e) => setSelectedScenarioId(e.target.value)}
+                  >
+                    <option value="all">All Scenarios</option>
+                    <option value="manual">Manually Added</option>
+                    {scenarios.map(scen => (
+                      <option key={scen.id} value={scen.id}>{scen.title}</option>
+                    ))}
+                  </select>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-4 mb-2">
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <Label htmlFor="recording-filter" className="text-sm text-muted-foreground whitespace-nowrap">Source:</Label>
-                    <select
-                      id="recording-filter"
-                      className="flex h-9 w-full sm:w-[250px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
-                      value={selectedRecordingId}
-                      onChange={(e) => setSelectedRecordingId(e.target.value)}
-                    >
-                      <option value="all">All Items</option>
-                      <option value="manual">Manually Added</option>
-                      {recordings.map(rec => (
-                        <option key={rec.id} value={rec.id}>{rec.title}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+              </div>
+            </div>
 
             <div className="space-y-4">
               {isLoading ? (
@@ -442,186 +467,91 @@ export default function VocabularyPage() {
                 </div>
               ) : filteredVocabulary.length > 0 ? (
                 filteredVocabulary.map((item) => (
-                  <Card key={item.id} className="overflow-hidden">
-                    <div className="flex items-center">
-                      <div className="flex-1 p-3">
-                        <div className="flex items-center gap-4 flex-wrap">
-                          <div className="flex items-center gap-2 min-w-[200px]">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-medium">{item.word}</span>
-                              <Image 
-                                src={`https://flagcdn.com/16x12/${getFlagCode(item.language)}.png`}
-                                alt={getLanguageName(item.language)}
-                                width={16}
-                                height={12}
-                                className="h-3 w-4"
-                              />
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0"
-                                onClick={() => playAudio(item.word, item.language)}
-                              >
-                                <Volume2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                            <span className="text-muted-foreground">→</span>
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-bold">{item.translation}</span>
-                              <Image 
-                                src={`https://flagcdn.com/16x12/${getFlagCode(item.target_language)}.png`}
-                                alt={getLanguageName(item.target_language)}
-                                width={16}
-                                height={12}
-                                className="h-3 w-4"
-                              />
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0"
-                                onClick={() => playAudio(item.translation, item.target_language)}
-                              >
-                                <Volume2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </div>
-                          {(item.context || item.example_sentence) && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0"
-                                  >
-                                    <Info className="h-3.5 w-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-[300px]">
-                                  <div className="space-y-1">
-                                    {item.context && <p>Context: {item.context}</p>}
-                                    {item.example_sentence && <p>Example: {item.example_sentence}</p>}
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center border-l h-full">
-                        {item.metadata?.category && (
-                          <Badge variant="outline" className="mx-2 h-6">
-                            {item.metadata.category}
-                          </Badge>
-                        )}
-                        <Dialog>
-                          <DialogTrigger asChild>
+                  <Card key={item.id} className="overflow-hidden border-2 border-primary/5 hover:border-primary/20 transition-all bg-card/50">
+                    <div className="flex flex-col p-3 sm:p-4 gap-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
+                        <div className="flex items-center justify-between sm:justify-start gap-4 flex-1">
+                          {/* Source side */}
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm sm:text-base">{item.word}</span>
+                            <Image 
+                              src={`https://flagcdn.com/16x12/${getFlagCode(item.language)}.png`}
+                              alt={getLanguageName(item.language)}
+                              width={16}
+                              height={12}
+                              className="h-3 w-4 border shrink-0 opacity-80"
+                            />
                             <Button
                               variant="ghost"
-                              size="sm"
-                              className="rounded-none px-3"
+                              size="icon"
+                              className="h-9 w-9 sm:h-8 sm:w-8 hover:bg-primary/5"
+                              onClick={() => playAudio(item.word, item.language, false)}
+                            >
+                              <Volume2 className="h-5 w-5 sm:h-4 sm:w-4" />
+                            </Button>
+                          </div>
+
+                          {/* Divider on desktop */}
+                          <ArrowRight className="hidden sm:inline h-4 w-4 text-muted-foreground/50" />
+
+                          {/* Target side */}
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-base sm:text-base bg-primary/10 px-2 py-0.5 rounded border border-primary/20 text-primary">{item.translation}</span>
+                            <Image 
+                              src={`https://flagcdn.com/16x12/${getFlagCode(item.target_language)}.png`}
+                              alt={getLanguageName(item.target_language)}
+                              width={16}
+                              height={12}
+                              className="h-3 w-4 border shrink-0 opacity-80"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-9 w-9 sm:h-8 sm:w-8 hover:bg-primary/5"
+                              onClick={() => playAudio(item.translation, item.target_language, true)}
+                            >
+                              <Volume2 className="h-5 w-5 sm:h-4 sm:w-4" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Meta & Actions */}
+                        <div className="flex items-center justify-between sm:justify-end gap-3 mt-1 sm:mt-0 border-t sm:border-0 pt-2 sm:pt-0">
+                          <div className="flex items-center gap-2">
+                            {item.metadata.type && (
+                              <Badge variant="outline" className="text-[10px] uppercase font-extrabold h-5 px-1.5 border-primary/20 text-primary/70">
+                                {item.metadata.type}
+                              </Badge>
+                            )}
+                            {item.scenario_id && (
+                              <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-bold">
+                                Scenario
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-9 w-9 sm:h-8 sm:w-8 text-muted-foreground hover:text-primary transition-colors"
                               onClick={() => handleEdit(item)}
                             >
-                              <Edit className="h-4 w-4" />
+                              <Pencil className="h-4 w-4" />
                             </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Edit Vocabulary Item</DialogTitle>
-                            </DialogHeader>
-                            <div className="space-y-4 py-4">
-                              <div className="space-y-2">
-                                <Label htmlFor="word">Original Text</Label>
-                                <Input
-                                  id="word"
-                                  value={editingItem?.word || ''}
-                                  onChange={(e) => setEditingItem(prev => prev ? { ...prev, word: e.target.value } : null)}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor="translation">Translation</Label>
-                                <Input
-                                  id="translation"
-                                  value={editingItem?.translation || ''}
-                                  onChange={(e) => setEditingItem(prev => prev ? { ...prev, translation: e.target.value } : null)}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor="category">Category</Label>
-                                <Input
-                                  id="category"
-                                  value={editingItem?.metadata?.category || ''}
-                                  onChange={(e) => setEditingItem(prev => prev ? {
-                                    ...prev,
-                                    metadata: { ...prev.metadata, category: e.target.value }
-                                  } : null)}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor="context">Context (max 128 characters)</Label>
-                                <Textarea
-                                  id="context"
-                                  value={editingItem?.context || ''}
-                                  onChange={(e) => setEditingItem(prev => prev ? { ...prev, context: e.target.value.slice(0, 128) } : null)}
-                                  maxLength={128}
-                                />
-                              </div>
-                            </div>
-                            <DialogFooter>
-                              <Button
-                                variant="outline"
-                                onClick={() => {
-                                  setIsEditing(null)
-                                  setEditingItem(null)
-                                }}
-                              >
-                                Cancel
-                              </Button>
-                              <Button onClick={handleSaveEdit}>
-                                Save Changes
-                              </Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                          <DialogTrigger asChild>
                             <Button
                               variant="ghost"
-                              size="sm"
-                              className="rounded-none px-3 text-destructive"
-                              disabled={isDeleting === item.id}
+                              size="icon"
+                              className="h-9 w-9 sm:h-8 sm:w-8 text-muted-foreground hover:text-destructive transition-colors"
                               onClick={() => {
                                 setItemToDelete(item.id)
                                 setIsDeleteDialogOpen(true)
                               }}
                             >
-                              <Trash className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" />
                             </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Delete Vocabulary Item</DialogTitle>
-                            </DialogHeader>
-                            <div className="space-y-4">
-                              <p>Are you sure you want to delete this vocabulary item? This action cannot be undone.</p>
-                              <div className="flex justify-end gap-2">
-                                <Button 
-                                  variant="outline" 
-                                  onClick={() => setIsDeleteDialogOpen(false)}
-                                >
-                                  Cancel
-                                </Button>
-                                <Button 
-                                  variant="destructive"
-                                  onClick={() => itemToDelete && handleDelete(itemToDelete)}
-                                  disabled={isDeleting === itemToDelete}
-                                >
-                                  {isDeleting === itemToDelete ? "Deleting..." : "Delete"}
-                                </Button>
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </Card>
@@ -633,7 +563,7 @@ export default function VocabularyPage() {
                   <p className="text-muted-foreground">
                     {searchTerm
                       ? "Try a different search term or category."
-                      : "Record your speech to start building your vocabulary."}
+                      : "Create a scenario to start building your vocabulary."}
                   </p>
                 </div>
               )}
@@ -641,6 +571,6 @@ export default function VocabularyPage() {
           </CardContent>
         </Card>
       </div>
-    </main>
+    </div>
   )
 }

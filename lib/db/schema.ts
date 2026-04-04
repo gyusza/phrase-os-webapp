@@ -1,11 +1,15 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
 
 export const analyses = sqliteTable('analyses', {
   id: text('id').primaryKey().notNull(),
-  recording_id: text('recording_id').notNull(),
+  scenario_id: text('scenario_id').notNull(),
   items: text('items', { mode: 'json' }).notNull().default('[]'),
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull(),
+}, (table) => {
+  return {
+    scenarioIdIdx: index('scenario_id_idx').on(table.scenario_id),
+  }
 });
 
 export const profiles = sqliteTable('profiles', {
@@ -22,19 +26,23 @@ export const progress_stats = sqliteTable('progress_stats', {
   id: text('id').primaryKey().notNull(),
   user_id: text('user_id').notNull(),
   date: text('date').notNull(),
-  recordings_count: integer('recordings_count').default(0),
+  scenarios_count: integer('scenarios_count').default(0),
   vocabulary_added: integer('vocabulary_added').default(0),
   vocabulary_reviewed: integer('vocabulary_reviewed').default(0),
   total_study_time: integer('total_study_time').default(0),
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull(),
+}, (table) => {
+  return {
+    userIdIdx: index('ps_user_id_idx').on(table.user_id),
+  }
 });
 
-export const recordings = sqliteTable('recordings', {
+export const scenarios = sqliteTable('scenarios', {
   id: text('id').primaryKey().notNull(),
   user_id: text('user_id').notNull(),
   title: text('title').notNull(),
-  audio_url: text('audio_url').notNull(),
+  audio_url: text('audio_url'), // Made optional for text/AI scenarios
   duration: integer('duration').notNull(),
   transcription: text('transcription'),
   language: text('language').notNull(),
@@ -42,6 +50,10 @@ export const recordings = sqliteTable('recordings', {
   updated_at: text('updated_at').notNull(),
   metadata: text('metadata', { mode: 'json' }).default('{}'),
   status: text('status').notNull().default('new'),
+}, (table) => {
+  return {
+    userIdIdx: index('scenarios_user_id_idx').on(table.user_id),
+  }
 });
 
 export const userSettings = sqliteTable('user_settings', {
@@ -58,6 +70,7 @@ export const userSettings = sqliteTable('user_settings', {
 export const vocabulary = sqliteTable('vocabulary', {
   id: text('id').primaryKey().notNull(),
   user_id: text('user_id').notNull(),
+  scenario_id: text('scenario_id'), // Linked to the source scenario
   word: text('word').notNull(),
   translation: text('translation').notNull(),
   language: text('language').notNull(),
@@ -70,6 +83,11 @@ export const vocabulary = sqliteTable('vocabulary', {
   updated_at: text('updated_at').notNull(),
   metadata: text('metadata', { mode: 'json' }).default('{}'),
   target_language: text('target_language').notNull().default('da'),
+}, (table) => {
+  return {
+    userIdIdx: index('vocab_user_id_idx').on(table.user_id),
+    scenarioIdIdx: index('vocab_scenario_id_idx').on(table.scenario_id),
+  }
 });
 
 export const vocabularyReviews = sqliteTable('vocabulary_reviews', {
@@ -81,4 +99,29 @@ export const vocabularyReviews = sqliteTable('vocabulary_reviews', {
   difficulty_rating: integer('difficulty_rating'),
   notes: text('notes'),
   created_at: text('created_at').notNull(),
+}, (table) => {
+  return {
+    userIdIdx: index('vr_user_id_idx').on(table.user_id),
+  }
+});
+
+export const signup_requests = sqliteTable('signup_requests', {
+  id: text('id').primaryKey().notNull(),
+  email: text('email').notNull(),
+  status: text('status').notNull().default('pending'),
+  created_at: text('created_at').notNull(),
+});
+
+export const tts_cache = sqliteTable('tts_cache', {
+  id: text('id').primaryKey().notNull(), // Hash of text + language + voice
+  text: text('text').notNull(),
+  language: text('language').notNull(),
+  voice_name: text('voice_name').notNull(),
+  audio_base64: text('audio_base64').notNull(),
+  mime_type: text('mime_type').notNull(),
+  created_at: text('created_at').notNull(),
+}, (table) => {
+  return {
+    textIdx: index('tts_text_idx').on(table.text),
+  }
 });

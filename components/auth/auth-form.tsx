@@ -23,7 +23,7 @@ export function AuthForm({ type }: AuthFormProps) {
 
     const formData = new FormData(e.currentTarget);
     const res = await loginAction(formData)
-    
+
     // loginAction throws redirect on success, so if it returns, it's an error
     if (res?.error) {
       setError(res.error)
@@ -45,7 +45,7 @@ export function AuthForm({ type }: AuthFormProps) {
       <form onSubmit={handleSubmit} className="grid gap-4">
         <div className="grid gap-2">
           <Label htmlFor="username">Username</Label>
-          <Input id="username" name="username" placeholder="admin or guest" required disabled={isLoading} />
+          <Input id="username" name="username" placeholder="" required disabled={isLoading} />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="password">Password</Label>
@@ -63,10 +63,6 @@ export function AuthForm({ type }: AuthFormProps) {
         </Alert>
       )}
 
-      <div className="text-center text-sm text-muted-foreground mt-4 border-t pt-4">
-        <p>Use <b>admin</b> / <b>admin</b> to view migrated data.</p>
-        <p>Use <b>guest</b> / <b>guest</b> for a testing account.</p>
-      </div>
     </div>
   )
 }

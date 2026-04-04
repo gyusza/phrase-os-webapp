@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { BookOpen, Calendar, Clock, Download, Mic } from 'lucide-react'
+import { BookOpen, Calendar, Clock, Download, Mic, Sparkles } from 'lucide-react'
 
 type TimeRange = 'week' | 'month' | 'year'
 
@@ -57,7 +57,7 @@ export default function ProgressPage() {
         <div className="grid md:grid-cols-3 gap-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Total Recordings</CardTitle>
+              <CardTitle className="text-base">Total Scenarios</CardTitle>
               <CardDescription>Audio samples collected</CardDescription>
             </CardHeader>
             <CardContent>
@@ -131,7 +131,7 @@ export default function ProgressPage() {
                           <div
                             className="w-5 bg-primary/70 rounded-t-sm"
                             style={{ height: `${[30, 45, 80, 60, 90, 50, 70][i]}%` }}
-                            title="Recordings"
+                            title="Scenarios"
                           />
                           <div
                             className="w-5 bg-primary rounded-t-sm"
@@ -153,7 +153,7 @@ export default function ProgressPage() {
                           <div
                             className="w-8 bg-primary/70 rounded-t-sm"
                             style={{ height: `${[50, 65, 80, 70][i]}%` }}
-                            title="Recordings"
+                            title="Scenarios"
                           />
                           <div
                             className="w-8 bg-primary rounded-t-sm"
@@ -176,7 +176,7 @@ export default function ProgressPage() {
                             <div
                               className="w-3 bg-primary/70 rounded-t-sm"
                               style={{ height: `${[30, 40, 60, 50, 70, 65, 80, 75, 60, 50, 40, 30][i]}%` }}
-                              title="Recordings"
+                              title="Scenarios"
                             />
                             <div
                               className="w-3 bg-primary rounded-t-sm"
@@ -195,7 +195,7 @@ export default function ProgressPage() {
             <div className="flex justify-center gap-6 mt-4">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-primary/70 rounded-sm" />
-                <span className="text-sm">Recordings</span>
+                <span className="text-sm">Scenarios</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-primary rounded-sm" />
@@ -242,11 +242,11 @@ export default function ProgressPage() {
             <CardContent>
               <div className="space-y-4">
                 {[
-                  { title: "First Recording", date: "Mar 1, 2023", icon: Mic, completed: true },
+                  { title: "First Scenario", date: "Mar 1, 2023", icon: Sparkles, completed: true },
                   { title: "10 Vocabulary Items", date: "Mar 5, 2023", icon: BookOpen, completed: true },
                   { title: "5-Day Streak", date: "Today", icon: Calendar, completed: true },
                   { title: "50 Vocabulary Items", date: "Mar 12, 2023", icon: BookOpen, completed: true },
-                  { title: "1 Hour Total Recording", date: "Mar 15, 2023", icon: Clock, completed: true },
+                  { title: "1 Hour Total Practice", date: "Mar 15, 2023", icon: Clock, completed: true },
                   { title: "100 Vocabulary Items", date: "Not completed", icon: BookOpen, completed: false },
                   { title: "10-Day Streak", date: "Not completed", icon: Calendar, completed: false },
                 ].map((milestone, index) => {

@@ -1,37 +1,35 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Mic, BookOpen, BarChart2 } from 'lucide-react'
+import { Mic, BookOpen, BarChart2, Sparkles } from 'lucide-react'
 import Link from "next/link"
-import RecentRecordings from "@/components/recent-recordings"
+import RecentScenarios from "@/components/recent-scenarios"
 import RecentVocabulary from "@/components/recent-vocabulary"
 import ProgressStats from "@/components/progress-stats"
 import { getDashboardStats } from "@/lib/actions/dashboard"
 
-import { getRecordings } from "@/lib/actions/recordings"
+import { getScenarios } from "@/lib/actions/scenarios"
 import { getVocabulary } from "@/lib/actions/vocabulary"
 
 export default async function DashboardPage() {
-  const [stats, recordings, vocabularyItems] = await Promise.all([
+  const [stats, scenarios, vocabularyItems] = await Promise.all([
     getDashboardStats(),
-    getRecordings(3),
+    getScenarios(3),
     getVocabulary(5)
   ]);
-  const { totalRecordings, totalVocabulary } = stats;
+  const { totalScenarios, totalVocabulary } = stats;
 
   return (
-    <main className="flex-1 py-6">
-      <div className="container">
-        <div className="content-wrapper">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+    <div className="flex flex-col gap-8 pb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+              <h1 className="text-3xl font-bold">Dashboard</h1>
               <p className="text-muted-foreground">Track your language learning progress and manage your vocabulary.</p>
             </div>
             <Button asChild>
-              <Link href="/dashboard/record" className="flex items-center gap-2">
-                <Mic className="w-4 h-4" />
-                New Recording
+              <Link href="/dashboard/scenarios/create" className="flex items-center gap-2 text-white">
+                <Sparkles className="w-4 h-4" />
+                New Scenario
               </Link>
             </Button>
           </div>
@@ -39,11 +37,11 @@ export default async function DashboardPage() {
           <div className="grid md:grid-cols-3 gap-6 mb-8">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Recordings</CardTitle>
-                <Mic className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Total Scenarios</CardTitle>
+                <Sparkles className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{totalRecordings}</div>
+                <div className="text-2xl font-bold">{totalScenarios}</div>
                 <p className="text-xs text-muted-foreground">Keep it coming!</p>
               </CardContent>
             </Card>
@@ -69,11 +67,11 @@ export default async function DashboardPage() {
             </Card>
           </div>
 
-          <Tabs defaultValue="recordings" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="recordings" className="flex items-center gap-2">
-                <Mic className="h-4 w-4" />
-                Recordings
+          <Tabs defaultValue="scenarios" className="space-y-4">
+            <TabsList className="w-full justify-start items-center overflow-x-auto overflow-y-hidden h-auto p-1 bg-muted/50 scrollbar-hide">
+              <TabsTrigger value="scenarios" className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                Scenarios
               </TabsTrigger>
               <TabsTrigger value="vocabulary" className="flex items-center gap-2">
                 <BookOpen className="h-4 w-4" />
@@ -85,14 +83,14 @@ export default async function DashboardPage() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="recordings" className="space-y-4">
+            <TabsContent value="scenarios" className="space-y-4">
               <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Recent Recordings</h2>
+                <h2 className="text-xl font-semibold">Recent Scenarios</h2>
                 <Button variant="outline" size="sm" asChild>
-                  <Link href="/dashboard/recordings">View All</Link>
+                  <Link href="/dashboard/scenarios">View All</Link>
                 </Button>
               </div>
-              <RecentRecordings initialRecordings={recordings} />
+              <RecentScenarios initialScenarios={scenarios} />
             </TabsContent>
 
             <TabsContent value="vocabulary" className="space-y-4">
@@ -115,8 +113,6 @@ export default async function DashboardPage() {
               <ProgressStats />
             </TabsContent>
           </Tabs>
-        </div>
-      </div>
-    </main>
+    </div>
   )
 }
