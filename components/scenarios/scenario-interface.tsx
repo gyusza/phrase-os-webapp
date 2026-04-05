@@ -13,7 +13,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Checkbox } from "@/components/ui/checkbox"
-import { createScenario } from "@/lib/actions/scenarios"
+import { createScenario, updateScenario } from "@/lib/actions/scenarios"
 import { getAnalysisData, saveAnalysis } from "@/lib/actions/analyze"
 import { createMultipleVocabulary } from "@/lib/actions/vocabulary"
 import { Textarea } from "@/components/ui/textarea"
@@ -208,6 +208,12 @@ export function ScenarioCreationInterface({ sourceLanguages, targetLanguage }: S
         setIsAnalyzing(false)
         setIsProcessing(false)
         return
+      }
+
+      // Update scenario language if it was 'any' or 'auto'
+      if (scenario.language === 'any' || scenario.language === 'auto' || scenario.language !== actualLanguage) {
+        await updateScenario(scenario.id, { language: actualLanguage })
+        setCompletedScenario({ ...scenario, language: actualLanguage })
       }
 
       // Save analysis to db silently

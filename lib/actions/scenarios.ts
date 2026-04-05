@@ -89,3 +89,14 @@ export async function deleteScenario(id: string) {
   await db.delete(scenarios).where(eq(scenarios.id, id))
   revalidatePath('/dashboard/scenarios')
 }
+
+export async function updateScenario(id: string, data: Partial<any>) {
+  const session = await auth()
+  if (!session?.user?.id) redirect("/auth/login")
+
+  await db.update(scenarios).set({ 
+    ...data,
+    updated_at: new Date().toISOString() 
+  }).where(eq(scenarios.id, id))
+  revalidatePath('/dashboard/scenarios')
+}
