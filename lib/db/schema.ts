@@ -15,6 +15,7 @@ export const analyses = sqliteTable('analyses', {
 export const profiles = sqliteTable('profiles', {
   id: text('id').primaryKey().notNull(),
   email: text('email'),
+  password: text('password'),
   full_name: text('full_name'),
   avatar_url: text('avatar_url'),
   created_at: text('created_at').notNull(),
