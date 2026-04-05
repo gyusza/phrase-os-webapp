@@ -8,7 +8,7 @@ export default function LandingPage() {
       <header className="border-b">
         <div className="container flex items-center justify-between py-4">
           <div className="flex items-center gap-2">
-            <Mic className="w-6 h-6 text-primary" />
+            <Mic className="w-6 h-6 text-primary" aria-hidden="true" />
             <span className="text-xl font-bold">PhraseOS</span>
           </div>
           <nav className="hidden md:flex items-center gap-6">
@@ -46,7 +46,7 @@ export default function LandingPage() {
             </Button>
 
             <div className="mt-16 w-full max-w-4xl aspect-video bg-muted rounded-lg border flex items-center justify-center">
-              <p className="text-muted-foreground">App Interface Preview Coming Soon</p>
+              <p className="text-muted-foreground font-medium tracking-tight">App Interface Preview Coming Soon…</p>
             </div>
           </div>
         </section>
@@ -57,25 +57,19 @@ export default function LandingPage() {
             <h2 className="text-3xl font-bold text-center mb-16">How It Works</h2>
             <div className="grid md:grid-cols-3 gap-8">
               <div className="flex flex-col items-center text-center p-6 rounded-lg border bg-card">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                  <Mic className="w-6 h-6 text-primary" />
-                </div>
+                  <Mic className="w-6 h-6 text-primary" aria-hidden="true" />
                 <h3 className="text-xl font-semibold mb-2">Talk naturally</h3>
                 <p className="text-muted-foreground">Record short snippets of your daily conversations.</p>
               </div>
 
               <div className="flex flex-col items-center text-center p-6 rounded-lg border bg-card">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                  <BarChart2 className="w-6 h-6 text-primary" />
-                </div>
+                  <BarChart2 className="w-6 h-6 text-primary" aria-hidden="true" />
                 <h3 className="text-xl font-semibold mb-2">AI analyzes your speech</h3>
                 <p className="text-muted-foreground">Identifies your most frequently used words and phrases.</p>
               </div>
 
               <div className="flex flex-col items-center text-center p-6 rounded-lg border bg-card">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                  <BookOpen className="w-6 h-6 text-primary" />
-                </div>
+                  <BookOpen className="w-6 h-6 text-primary" aria-hidden="true" />
                 <h3 className="text-xl font-semibold mb-2">Builds your personal vocabulary</h3>
                 <p className="text-muted-foreground">Get translations for what matters to you.</p>
               </div>

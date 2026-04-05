@@ -202,7 +202,7 @@ export default function FlashcardsClient({ initialVocabulary }: { initialVocabul
 
               {/* Back Side */}
               <Card 
-                className="absolute inset-0 w-full h-full backface-hidden shadow-2xl border-2 border-primary/30 bg-primary/5"
+                className="absolute inset-0 w-full h-full backface-hidden shadow-2xl border-2 border-primary/30 bg-card"
                 style={{ transform: 'rotateY(180deg)' }}
               >
                 <CardContent className="h-full flex flex-col items-center justify-center p-4 sm:p-8 text-center space-y-4 sm:space-y-6">
@@ -259,17 +259,6 @@ export default function FlashcardsClient({ initialVocabulary }: { initialVocabul
         </Button>
       </div>
 
-      <style jsx global>{`
-        .perspective-1000 {
-          perspective: 1000px;
-        }
-        .preserve-3d {
-          transform-style: preserve-3d;
-        }
-        .backface-hidden {
-          backface-visibility: hidden;
-        }
-      `}</style>
     </div>
   )
 }

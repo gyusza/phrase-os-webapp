@@ -59,6 +59,7 @@ export const scenarios = sqliteTable('scenarios', {
 export const userSettings = sqliteTable('user_settings', {
   user_id: text('user_id').primaryKey().notNull(),
   daily_vocabulary_goal: integer('daily_vocabulary_goal'),
+  total_vocabulary_goal: integer('total_vocabulary_goal').default(150),
   notification_preferences: text('notification_preferences', { mode: 'json' }).default('{}'),
   theme: text('theme').default('light'),
   created_at: text('created_at').notNull(),
@@ -83,6 +84,11 @@ export const vocabulary = sqliteTable('vocabulary', {
   updated_at: text('updated_at').notNull(),
   metadata: text('metadata', { mode: 'json' }).default('{}'),
   target_language: text('target_language').notNull().default('da'),
+  // SRS (SM-2) fields
+  ease_factor: text('ease_factor').notNull().default('2.5'), // stored as text for SQLite real compatibility
+  interval: integer('interval').notNull().default(0), // days until next review
+  repetition_count: integer('repetition_count').notNull().default(0), // consecutive correct answers
+  srs_level: text('srs_level').notNull().default('new'), // new | learning | young | mature
 }, (table) => {
   return {
     userIdIdx: index('vocab_user_id_idx').on(table.user_id),

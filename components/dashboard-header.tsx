@@ -47,7 +47,7 @@ export default function DashboardHeader() {
       <div className="container h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2">
-            <Mic className="h-5 w-5 text-primary" />
+            <Mic className="h-5 w-5 text-primary" aria-hidden="true" />
             <span className="font-bold">PhraseOS</span>
           </Link>
         </div>
@@ -65,7 +65,7 @@ export default function DashboardHeader() {
                   isActive ? "text-primary" : "text-muted-foreground"
                 }`}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4" aria-hidden="true" />
                 {item.name}
               </Link>
             )
@@ -76,7 +76,7 @@ export default function DashboardHeader() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-full">
-                <User className="h-5 w-5" />
+                <User className="h-5 w-5" aria-hidden="true" />
                 <span className="sr-only">User menu</span>
               </Button>
             </DropdownMenuTrigger>
@@ -97,7 +97,7 @@ export default function DashboardHeader() {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-2" />
+                <LogOut className="h-4 w-4 mr-2" aria-hidden="true" />
                 Log out
               </DropdownMenuItem>
             </DropdownMenuContent>

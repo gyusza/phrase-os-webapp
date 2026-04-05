@@ -1,270 +1,117 @@
-"use client"
-
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { BookOpen, Calendar, Clock, Download, Mic, Sparkles } from 'lucide-react'
+import { BookOpen, Calendar, Clock, Sparkles } from 'lucide-react'
+import ProgressStats from "@/components/progress-stats"
+import { getDetailedProgressStats, getReviewStats, getVocabularyByCategory } from "@/lib/actions/practice"
+import { getDashboardStats } from "@/lib/actions/dashboard"
+import { getUserSettings } from "@/lib/actions/settings"
+import { ExportButton } from "@/components/progress/export-button"
+import { auth } from "@/auth"
+import { redirect } from "next/navigation"
 
-type TimeRange = 'week' | 'month' | 'year'
+export default async function ProgressPage() {
+  const session = await auth()
+  if (!session?.user?.id) redirect("/auth/login")
 
-export default function ProgressPage() {
-  const [timeRange, setTimeRange] = useState<TimeRange>('week')
+  const [detailedStats, reviewStats, dashboardStats, categories, settings] = await Promise.all([
+    getDetailedProgressStats(),
+    getReviewStats(),
+    getDashboardStats(),
+    getVocabularyByCategory(),
+    getUserSettings(),
+  ])
+
+  if (!detailedStats || !reviewStats) {
+    return <div>Error loading progress data.</div>
+  }
+
+  const totalGoal = settings?.total_vocabulary_goal || 150
+  const vocabSize = dashboardStats.totalVocabulary
+  const totalScenarios = dashboardStats.totalScenarios
+  
+  // Calculate milestones
+  const milestones = [
+    { title: "First Scenario", date: "Achievement", icon: Sparkles, completed: totalScenarios > 0 },
+    { title: "10 Vocabulary Items", date: "Milestone", icon: BookOpen, completed: vocabSize >= 10 },
+    { title: "Streak Active", date: "Current", icon: Calendar, completed: reviewStats.streak > 0 },
+    { title: "50 Vocabulary Items", date: "Milestone", icon: BookOpen, completed: vocabSize >= 50 },
+    { title: "Pro Learner", date: `${totalGoal} Items`, icon: TrophyIcon, completed: vocabSize >= totalGoal },
+  ]
 
   return (
-    <main className="flex-1 container py-6">
+    <main className="flex-1 container py-6 pb-20">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Progress</h1>
           <p className="text-muted-foreground">Track your language learning journey and achievements.</p>
         </div>
-        <Button variant="outline" className="gap-2">
-          <Download className="w-4 h-4" />
-          Export Data
-        </Button>
+        <ExportButton />
       </div>
 
-      <div className="grid gap-6">
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-          <Tabs 
-            value={timeRange} 
-            onValueChange={(value) => setTimeRange(value as TimeRange)} 
-            className="w-full md:w-auto"
-          >
-            <TabsList className="w-full grid grid-cols-3 md:w-auto">
-              <TabsTrigger value="week">Week</TabsTrigger>
-              <TabsTrigger value="month">Month</TabsTrigger>
-              <TabsTrigger value="year">Year</TabsTrigger>
-            </TabsList>
-          </Tabs>
+      <div className="grid gap-8">
+        {/* Core Stats Component */}
+        <ProgressStats data={detailedStats as any} streak={reviewStats.streak} />
 
-          <Select defaultValue="all">
-            <SelectTrigger className="w-full md:w-[180px]">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              <SelectItem value="daily">Daily</SelectItem>
-              <SelectItem value="work">Work</SelectItem>
-              <SelectItem value="shopping">Shopping</SelectItem>
-              <SelectItem value="food">Food</SelectItem>
-              <SelectItem value="travel">Travel</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Total Scenarios</CardTitle>
-              <CardDescription>Audio samples collected</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-baseline gap-2">
-                <div className="text-3xl font-bold">12</div>
-                <div className="text-sm text-green-500">+2 this week</div>
-              </div>
-              <div className="mt-4 h-2 bg-muted rounded-full overflow-hidden">
-                <div className="bg-primary h-full rounded-full" style={{ width: "40%" }} />
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground">40% increase from last {timeRange}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Vocabulary Size</CardTitle>
-              <CardDescription>Unique phrases learned</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-baseline gap-2">
-                <div className="text-3xl font-bold">87</div>
-                <div className="text-sm text-green-500">+15 this week</div>
-              </div>
-              <div className="mt-4 h-2 bg-muted rounded-full overflow-hidden">
-                <div className="bg-primary h-full rounded-full" style={{ width: "65%" }} />
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground">65% to your goal of 150 phrases</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Learning Streak</CardTitle>
-              <CardDescription>Consecutive days active</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-baseline gap-2">
-                <div className="text-3xl font-bold">5 days</div>
-              </div>
-              <div className="mt-4 grid grid-cols-7 gap-1">
-                {Array.from({ length: 7 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`h-8 rounded-md flex items-center justify-center text-xs font-medium ${
-                      i < 5 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {["M", "T", "W", "T", "F", "S", "S"][i]}
-                  </div>
-                ))}
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground">Keep going! Your best streak was 12 days.</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Activity Overview</CardTitle>
-            <CardDescription>Your language learning activity over time</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              <div className="h-full flex items-end justify-between gap-2 pt-10">
-                {timeRange === "week" && (
-                  <>
-                    {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, i) => (
-                      <div key={day} className="flex flex-col items-center gap-2 flex-1">
-                        <div className="w-full flex items-end justify-center gap-1 h-full">
-                          <div
-                            className="w-5 bg-primary/70 rounded-t-sm"
-                            style={{ height: `${[30, 45, 80, 60, 90, 50, 70][i]}%` }}
-                            title="Scenarios"
-                          />
-                          <div
-                            className="w-5 bg-primary rounded-t-sm"
-                            style={{ height: `${[40, 60, 75, 50, 85, 45, 65][i]}%` }}
-                            title="Phrases learned"
-                          />
-                        </div>
-                        <div className="text-xs font-medium">{day}</div>
-                      </div>
-                    ))}
-                  </>
-                )}
-
-                {timeRange === "month" && (
-                  <>
-                    {["Week 1", "Week 2", "Week 3", "Week 4"].map((week, i) => (
-                      <div key={week} className="flex flex-col items-center gap-2 flex-1">
-                        <div className="w-full flex items-end justify-center gap-2 h-full">
-                          <div
-                            className="w-8 bg-primary/70 rounded-t-sm"
-                            style={{ height: `${[50, 65, 80, 70][i]}%` }}
-                            title="Scenarios"
-                          />
-                          <div
-                            className="w-8 bg-primary rounded-t-sm"
-                            style={{ height: `${[45, 70, 85, 60][i]}%` }}
-                            title="Phrases learned"
-                          />
-                        </div>
-                        <div className="text-xs font-medium">{week}</div>
-                      </div>
-                    ))}
-                  </>
-                )}
-
-                {timeRange === "year" && (
-                  <>
-                    {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map(
-                      (month, i) => (
-                        <div key={month} className="flex flex-col items-center gap-2 flex-1">
-                          <div className="w-full flex items-end justify-center gap-1 h-full">
-                            <div
-                              className="w-3 bg-primary/70 rounded-t-sm"
-                              style={{ height: `${[30, 40, 60, 50, 70, 65, 80, 75, 60, 50, 40, 30][i]}%` }}
-                              title="Scenarios"
-                            />
-                            <div
-                              className="w-3 bg-primary rounded-t-sm"
-                              style={{ height: `${[25, 35, 55, 45, 65, 60, 75, 70, 55, 45, 35, 25][i]}%` }}
-                              title="Phrases learned"
-                            />
-                          </div>
-                          <div className="text-xs font-medium">{month}</div>
-                        </div>
-                      ),
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-            <div className="flex justify-center gap-6 mt-4">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-primary/70 rounded-sm" />
-                <span className="text-sm">Scenarios</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-primary rounded-sm" />
-                <span className="text-sm">Phrases learned</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="grid md:grid-cols-2 gap-4">
-          <Card>
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Category Distribution */}
+          <Card className="border-2 shadow-sm">
             <CardHeader>
-              <CardTitle>Category Distribution</CardTitle>
-              <CardDescription>Vocabulary by category</CardDescription>
+              <CardTitle className="text-lg font-bold">Category Distribution</CardTitle>
+              <CardDescription>Vocabulary grouped by Scenario sources</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {[
-                  { category: "Daily", count: 32, percentage: 37 },
-                  { category: "Work", count: 18, percentage: 21 },
-                  { category: "Shopping", count: 15, percentage: 17 },
-                  { category: "Food", count: 12, percentage: 14 },
-                  { category: "Travel", count: 10, percentage: 11 },
-                ].map((item) => (
-                  <div key={item.category} className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm font-medium">{item.category}</span>
-                      <span className="text-sm text-muted-foreground">{item.count} phrases</span>
+              {categories.length === 0 ? (
+                <div className="py-10 text-center text-muted-foreground italic">
+                  No data yet. Complete a scenario to see your distribution!
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {categories.slice(0, 5).map((item) => (
+                    <div key={item.category} className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm font-bold truncate max-w-[200px]">{item.category}</span>
+                        <span className="text-sm text-muted-foreground font-medium tabular-nums">{item.count} phrases</span>
+                      </div>
+                      <div className="h-2.5 bg-muted rounded-full overflow-hidden border">
+                        <div 
+                          className="bg-primary h-full rounded-full transition-all duration-1000" 
+                          style={{ width: `${item.percentage}%` }} 
+                        />
+                      </div>
                     </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div className="bg-primary h-full rounded-full" style={{ width: `${item.percentage}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          <Card>
+          {/* Learning Milestones */}
+          <Card className="border-2 shadow-sm">
             <CardHeader>
-              <CardTitle>Learning Milestones</CardTitle>
-              <CardDescription>Your achievements and progress</CardDescription>
+              <CardTitle className="text-lg font-bold">Learning Milestones</CardTitle>
+              <CardDescription>Your historical achievements</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {[
-                  { title: "First Scenario", date: "Mar 1, 2023", icon: Sparkles, completed: true },
-                  { title: "10 Vocabulary Items", date: "Mar 5, 2023", icon: BookOpen, completed: true },
-                  { title: "5-Day Streak", date: "Today", icon: Calendar, completed: true },
-                  { title: "50 Vocabulary Items", date: "Mar 12, 2023", icon: BookOpen, completed: true },
-                  { title: "1 Hour Total Practice", date: "Mar 15, 2023", icon: Clock, completed: true },
-                  { title: "100 Vocabulary Items", date: "Not completed", icon: BookOpen, completed: false },
-                  { title: "10-Day Streak", date: "Not completed", icon: Calendar, completed: false },
-                ].map((milestone, index) => {
+              <div className="space-y-5">
+                {milestones.map((milestone, index) => {
                   const Icon = milestone.icon
                   return (
                     <div key={index} className="flex items-start gap-4">
                       <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border-2 transition-colors ${
                           milestone.completed
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted text-muted-foreground"
+                            ? "bg-primary border-primary text-primary-foreground shadow-sm shadow-primary/20"
+                            : "bg-muted/50 border-muted text-muted-foreground animate-pulse"
                         }`}
                       >
                         <Icon className="h-4 w-4" />
                       </div>
                       <div>
-                        <div className="font-medium">{milestone.title}</div>
-                        <div className="text-sm text-muted-foreground">{milestone.date}</div>
+                        <div className={`font-bold ${milestone.completed ? "text-foreground" : "text-muted-foreground"}`}>
+                          {milestone.title}
+                        </div>
+                        <div className="text-[10px] uppercase font-black text-muted-foreground tracking-widest leading-none mt-1">
+                          {milestone.completed ? "Achieved" : "In Progress"}
+                        </div>
                       </div>
                     </div>
                   )
@@ -275,5 +122,29 @@ export default function ProgressPage() {
         </div>
       </div>
     </main>
+  )
+}
+
+function TrophyIcon({ className }: { className?: string }) {
+  return (
+    <svg 
+      xmlns="http://www.w3.org/2000/svg" 
+      width="24" 
+      height="24" 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round" 
+      className={className}
+    >
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+      <path d="M4 22h16" />
+      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+      <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+    </svg>
   )
 }

@@ -45,20 +45,20 @@ export function AuthForm({ type }: AuthFormProps) {
       <form onSubmit={handleSubmit} className="grid gap-4">
         <div className="grid gap-2">
           <Label htmlFor="username">Username</Label>
-          <Input id="username" name="username" placeholder="" required disabled={isLoading} />
+          <Input id="username" name="username" placeholder="johndoe" required disabled={isLoading} autoComplete="username" />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="password">Password</Label>
-          <Input id="password" name="password" type="password" required disabled={isLoading} />
+          <Input id="password" name="password" type="password" required disabled={isLoading} autoComplete="current-password" />
         </div>
         <Button disabled={isLoading}>
-          {isLoading && <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />}
+          {isLoading && <Icons.spinner className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
           Sign In
         </Button>
       </form>
 
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" role="alert" aria-live="assertive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}

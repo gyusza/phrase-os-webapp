@@ -31,6 +31,7 @@ interface UserSettings {
   } | any
   theme: string
   daily_vocabulary_goal?: number | null
+  total_vocabulary_goal?: number | null
   created_at?: string
   updated_at?: string
 }
@@ -109,6 +110,8 @@ export default function SettingsPage() {
       await updateUserSettings({
           source_languages: settings.source_languages,
           target_language: settings.target_language,
+          daily_vocabulary_goal: settings.daily_vocabulary_goal,
+          total_vocabulary_goal: settings.total_vocabulary_goal,
       })
 
       toast({
@@ -280,6 +283,42 @@ export default function SettingsPage() {
             <CardFooter>
               <Button onClick={handleSaveLanguage} disabled={isSaving}>
                 {isSaving ? "Saving..." : "Save changes"}
+              </Button>
+            </CardFooter>
+          </Card>
+
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Learning Goals</CardTitle>
+              <CardDescription>Set your vocabulary targets.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="daily-goal">Daily Vocabulary Goal</Label>
+                  <Input 
+                    id="daily-goal" 
+                    type="number"
+                    value={settings?.daily_vocabulary_goal || 10}
+                    onChange={(e) => setSettings(prev => prev ? { ...prev, daily_vocabulary_goal: parseInt(e.target.value) } : null)}
+                  />
+                  <p className="text-xs text-muted-foreground">Number of new phrases to learn per day.</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="total-goal">Total Vocabulary Goal</Label>
+                  <Input 
+                    id="total-goal" 
+                    type="number"
+                    value={settings?.total_vocabulary_goal || 150}
+                    onChange={(e) => setSettings(prev => prev ? { ...prev, total_vocabulary_goal: parseInt(e.target.value) } : null)}
+                  />
+                  <p className="text-xs text-muted-foreground">Your long-term target (shown on Progress page).</p>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button onClick={handleSaveLanguage} disabled={isSaving}>
+                {isSaving ? "Saving..." : "Save goals"}
               </Button>
             </CardFooter>
           </Card>

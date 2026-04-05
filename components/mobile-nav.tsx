@@ -36,9 +36,9 @@ export function MobileNav() {
               }`}
             >
               <div className={`p-1.5 rounded-xl transition-all ${isActive ? "bg-primary/10 scale-110" : "hover:bg-muted"}`}>
-                <Icon className={`h-5 w-5 ${isActive ? "stroke-[2.5px]" : "stroke-[2px]"}`} />
+                <Icon className={`h-5 w-5 ${isActive ? "stroke-[2.5px]" : "stroke-[2px]"}`} aria-hidden="true" />
               </div>
-              <span className={`text-[10px] font-bold tracking-tight ${isActive ? "opacity-100" : "opacity-80"}`}>{item.name}</span>
+              <span className={`text-xs font-bold tracking-tight ${isActive ? "opacity-100" : "opacity-80"}`}>{item.name}</span>
             </Link>
           )
         })}

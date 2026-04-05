@@ -18,6 +18,7 @@ export async function getUserSettings() {
     return {
       user_id: session.user.id,
       daily_vocabulary_goal: 10,
+      total_vocabulary_goal: 150,
       theme: 'light',
       source_languages: ['en'],
       target_language: 'da',

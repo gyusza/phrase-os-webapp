@@ -12,7 +12,7 @@ export function Header({ showNavigation = true }: HeaderProps) {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/60">
       <div className="container flex h-16 items-center">
         <Link href="/" className="flex items-center gap-2">
-          <Mic className="h-5 w-5 text-primary" />
+          <Mic className="h-5 w-5 text-primary" aria-hidden="true" />
           <span className="font-bold">PhraseOS</span>
         </Link>
 
