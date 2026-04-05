@@ -51,6 +51,7 @@ export function ScenarioCreationInterface({ sourceLanguages, targetLanguage }: S
   
   const [pastedText, setPastedText] = useState("")
   const [scenarioContext, setScenarioContext] = useState("")
+  const [audioSource, setAudioSource] = useState<'record' | 'upload' | null>(null)
   
   const [isUploading, setIsUploading] = useState(false)
   const [accordionValue, setAccordionValue] = useState<string>("ai-scenario")
@@ -312,12 +313,12 @@ export function ScenarioCreationInterface({ sourceLanguages, targetLanguage }: S
           source_languages: sourceLanguages,
           target_language: targetLanguage,
           detected_language: detectedLanguage,
-          source_tab: 'record-audio'
+          source_tab: 'audio-scenario'
         }
       }
 
       const scenario: any = await createScenario(scenarioData)
-      await finalizeProcessing(scenario, transcription, detectedLanguage, 'record-audio')
+      await finalizeProcessing(scenario, transcription, detectedLanguage, 'audio-scenario')
     } catch (error) {
       console.error('Error processing audio:', error)
       toast({
@@ -364,12 +365,12 @@ export function ScenarioCreationInterface({ sourceLanguages, targetLanguage }: S
           source_languages: sourceLanguages,
           target_language: targetLanguage,
           detected_language: detectedLanguage,
-          source_tab: 'upload-audio'
+          source_tab: 'audio-scenario'
         }
       }
 
       const scenario: any = await createScenario(scenarioData)
-      await finalizeProcessing(scenario, transcription, detectedLanguage, 'upload-audio')
+      await finalizeProcessing(scenario, transcription, detectedLanguage, 'audio-scenario')
     } catch (error) {
       console.error('Error processing upload:', error)
       toast({
@@ -689,49 +690,45 @@ export function ScenarioCreationInterface({ sourceLanguages, targetLanguage }: S
     <Accordion type="single" value={accordionValue} onValueChange={setAccordionValue} className="space-y-4">
       <AccordionItem value="ai-scenario" className="border-none">
         <Card className="w-full overflow-hidden border-2 border-primary/10 shadow-lg">
-          <CardHeader className="bg-primary/5 pb-6">
-            <AccordionTrigger className="hover:no-underline pt-0 pb-0">
-                <div className="flex items-center gap-3 pr-4">
-                    <div className="p-2 bg-primary/10 rounded-lg shrink-0">
-                        <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-                    </div>
-                    <div className="text-left min-w-0">
-                        <CardTitle className="text-lg sm:text-2xl truncate">AI Scenario Generation</CardTitle>
-                        <CardDescription className="text-xs sm:text-sm line-clamp-1">Generate based on custom context</CardDescription>
-                    </div>
-                </div>
-            </AccordionTrigger>
-          </CardHeader>
+          <AccordionTrigger className="hover:no-underline py-4 px-6 bg-primary/5">
+            <div className="flex items-center gap-3 text-left">
+              <div className="p-2 bg-primary/10 rounded-lg shrink-0">
+                <Sparkles className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-lg font-bold">AI Scenario Generation</CardTitle>
+                <CardDescription className="text-xs">Perfect for custom practice contexts</CardDescription>
+              </div>
+            </div>
+          </AccordionTrigger>
           <AccordionContent>
             <CardContent className="pt-6 space-y-6">
                {completedScenario?.metadata?.source_tab === 'ai-scenario' ? (
                 renderResults(completedScenario)
                ) : (
-                <div className="space-y-6">
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="context">Scenario Context</Label>
-                            <Textarea 
-                                id="context"
-                                placeholder="Example: Ordering a coffee in a busy cafe in Copenhagen, or checking in at a hotel in Budapest..."
-                                className="min-h-[120px] resize-none"
-                                value={scenarioContext}
-                                onChange={(e) => setScenarioContext(e.target.value)}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                Describe the situation you want to practice. The AI will generate 8-10 essential expressions for this context.
-                            </p>
-                        </div>
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="context" className="text-sm font-semibold">What situation do you want to practice?</Label>
+                        <Textarea 
+                            id="context"
+                            placeholder="Example: Ordering a coffee in a busy cafe in Copenhagen..."
+                            className="min-h-[100px] resize-none bg-muted/20 border-primary/5 focus:border-primary/20 transition-all"
+                            value={scenarioContext}
+                            onChange={(e) => setScenarioContext(e.target.value)}
+                        />
+                        <p className="text-[10px] text-muted-foreground italic">
+                            The AI will generate 8-10 essential expressions for this specific context.
+                        </p>
                     </div>
 
                     <Button 
                         size="lg" 
-                        className="w-full gap-2 text-lg h-12"
+                        className="w-full gap-2 font-bold h-12 shadow-sm hover:shadow-md transition-all rounded-xl"
                         onClick={handleAIScenarioSubmit}
                         disabled={isProcessing || !scenarioContext.trim()}
                     >
                         {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-                        Generate Scenario Content
+                        Generate Scenario
                     </Button>
                 </div>
                )}
@@ -740,117 +737,79 @@ export function ScenarioCreationInterface({ sourceLanguages, targetLanguage }: S
         </Card>
       </AccordionItem>
 
-      <AccordionItem value="record-audio" className="border-none">
-        <Card className="w-full">
-          <CardHeader className="space-y-1">
-            <AccordionTrigger className="pt-0">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-muted rounded-lg text-muted-foreground">
-                        <Mic className="h-5 w-5" />
-                    </div>
-                    <CardTitle className="text-xl">Record Audio Scenario</CardTitle>
-                </div>
-            </AccordionTrigger>
-          </CardHeader>
+      <AccordionItem value="audio-scenario" className="border-none">
+        <Card className="w-full overflow-hidden border border-primary/5">
+          <AccordionTrigger className="hover:no-underline py-4 px-6 bg-muted/30">
+            <div className="flex items-center gap-3 text-left">
+              <div className="p-2 bg-muted rounded-lg shrink-0">
+                <Mic className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <CardTitle className="text-lg font-semibold">Audio Scenario</CardTitle>
+                <CardDescription className="text-xs">Record yourself or upload an audio file</CardDescription>
+              </div>
+            </div>
+          </AccordionTrigger>
           <AccordionContent>
-            <CardContent>
-              {completedScenario?.metadata?.source_tab === 'record-audio' ? (
+            <CardContent className="pt-6">
+              {(completedScenario?.metadata?.source_tab === 'record-audio' || completedScenario?.metadata?.source_tab === 'upload-audio') ? (
                 renderResults(completedScenario)
               ) : (
                 <div className="space-y-8">
-
-                  <div className="flex flex-col items-center space-y-6">
+                  <div className="flex flex-col items-center space-y-6 py-4">
                     {isRecording && (
-                      <div className="text-xl font-mono text-primary animate-pulse">
+                      <div className="text-3xl font-mono text-primary animate-pulse tabular-nums">
                         {formatTime(recordingTime)}
                       </div>
                     )}
-                    <Button
-                      size="lg"
-                      variant={isRecording ? "destructive" : "default"}
-                      onClick={isRecording ? stopRecording : startRecording}
-                      disabled={isProcessing || isTranscribing || isAnalyzing}
-                      className="w-24 h-24 rounded-full relative shadow-md"
-                    >
-                      {isRecording ? (
-                        <Square className="h-6 w-6" />
-                      ) : (isTranscribing || isAnalyzing) ? (
-                        <Loader2 className="h-6 w-6 animate-spin" />
-                      ) : (
-                        <Mic className="h-6 w-6" />
-                      )}
-                    </Button>
                     
-                    <div className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
-                        {isProcessing && !isTranscribing && (
-                            <><Loader2 className="h-4 w-4 animate-spin" /> Processing audio...</>
+                    <div className="relative">
+                      <Button
+                        size="lg"
+                        variant={isRecording ? "destructive" : "default"}
+                        onClick={isRecording ? stopRecording : startRecording}
+                        disabled={isProcessing || isTranscribing || isAnalyzing || isUploading}
+                        className={`w-28 h-28 rounded-full shadow-xl transition-all hover:scale-105 active:scale-95 ${isRecording ? 'animate-pulse' : ''}`}
+                      >
+                        {isRecording ? (
+                          <Square className="h-8 w-8" />
+                        ) : (isTranscribing || isAnalyzing || isUploading) ? (
+                          <Loader2 className="h-8 w-8 animate-spin" />
+                        ) : (
+                          <Mic className="h-8 w-8" />
                         )}
-                        {isTranscribing && (
-                            <><Loader2 className="h-4 w-4 animate-spin" /> Transcribing...</>
-                        )}
-                        {isAnalyzing && (
-                            <><Loader2 className="h-4 w-4 animate-spin" /> Extracting vocabulary...</>
-                        )}
+                      </Button>
                     </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </AccordionContent>
-        </Card>
-      </AccordionItem>
+                    
+                    <div className="flex flex-col items-center gap-4 w-full">
+                      <div className="h-6 flex items-center justify-center text-sm font-medium text-muted-foreground">
+                        {isRecording ? "Recording..." : isProcessing ? "Processing..." : isTranscribing ? "Transcribing..." : isAnalyzing ? "Analyzing..." : isUploading ? "Uploading..." : "Click to start recording"}
+                      </div>
 
-      <AccordionItem value="upload-audio" className="border-none">
-        <Card className="w-full">
-          <CardHeader className="space-y-1">
-            <AccordionTrigger className="pt-0">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-muted rounded-lg text-muted-foreground">
-                        <Upload className="h-5 w-5" />
+                      {!isRecording && !isProcessing && !isTranscribing && !isAnalyzing && !isUploading && (
+                        <div className="flex flex-col items-center gap-2 pt-4 border-t w-full max-w-[200px]">
+                          <span className="text-xs text-muted-foreground uppercase tracking-widest font-bold">OR</span>
+                          <Input
+                            type="file"
+                            accept="audio/*,video/mp4,video/quicktime"
+                            className="hidden"
+                            ref={fileInputRef}
+                            onChange={handleFileUpload}
+                            disabled={isProcessing}
+                          />
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()} 
+                            className="text-primary hover:text-primary/80 hover:bg-primary/5 font-semibold"
+                          >
+                            <Upload className="mr-2 h-4 w-4" />
+                            Upload Audio File
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                    <CardTitle className="text-xl">Upload Audio Scenario</CardTitle>
-                </div>
-            </AccordionTrigger>
-          </CardHeader>
-          <AccordionContent>
-            <CardContent className="py-2">
-              {completedScenario?.metadata?.source_tab === 'upload-audio' ? (
-                renderResults(completedScenario)
-              ) : (
-                <div className="flex flex-col items-center justify-center space-y-4 text-center py-8">
-                  <div className="rounded-full bg-primary/10 p-4">
-                    <Upload className="h-10 w-10 text-primary" />
                   </div>
-                  <div>
-                    <h3 className="text-lg font-medium">Select audio or video file</h3>
-                    <p className="text-sm text-muted-foreground mt-1">MP3, WAV, M4A, or MP4</p>
-                  </div>
-                  <Input
-                    type="file"
-                    accept="audio/*,video/mp4,video/quicktime"
-                    className="hidden"
-                    ref={fileInputRef}
-                    onChange={handleFileUpload}
-                    disabled={isProcessing}
-                  />
-                  <Button 
-                    onClick={() => fileInputRef.current?.click()} 
-                    disabled={isProcessing}
-                    variant="outline"
-                  >
-                    {isUploading ? (
-                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>
-                    ) : (
-                      <><Upload className="mr-2 h-4 w-4" /> Choose File</>
-                    )}
-                  </Button>
-                  
-                  {(isTranscribing || isAnalyzing) && !isUploading && (
-                    <div className="text-sm text-muted-foreground flex flex-col items-center gap-2 mt-4">
-                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                      <span>{isTranscribing ? "Transcribing..." : "Analyzing..."}</span>
-                    </div>
-                  )}
                 </div>
               )}
             </CardContent>
@@ -859,35 +818,39 @@ export function ScenarioCreationInterface({ sourceLanguages, targetLanguage }: S
       </AccordionItem>
 
       <AccordionItem value="upload-text" className="border-none">
-        <Card className="w-full">
-          <CardHeader className="space-y-1">
-            <AccordionTrigger className="pt-0">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-muted rounded-lg text-muted-foreground">
-                        <FileText className="h-5 w-5" />
-                    </div>
-                    <CardTitle className="text-xl">Text Scenario</CardTitle>
-                </div>
-            </AccordionTrigger>
-          </CardHeader>
+        <Card className="w-full overflow-hidden border border-primary/5">
+          <AccordionTrigger className="hover:no-underline py-4 px-6 bg-muted/30">
+            <div className="flex items-center gap-3 text-left">
+              <div className="p-2 bg-muted rounded-lg shrink-0">
+                <FileText className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <CardTitle className="text-lg font-semibold">Text Scenario</CardTitle>
+                <CardDescription className="text-xs">Paste content to analyze</CardDescription>
+              </div>
+            </div>
+          </AccordionTrigger>
           <AccordionContent>
-            <CardContent className="py-2">
+            <CardContent className="pt-6 space-y-4">
               {completedScenario?.metadata?.source_tab === 'upload-text' ? (
                  renderResults(completedScenario)
               ) : (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="pasted-text">Paste text to analyze</Label>
+                    <Label htmlFor="pasted-text" className="text-sm font-semibold">Content in Practiced Language</Label>
                     <Textarea 
                       id="pasted-text"
-                      placeholder="Paste a dialogue, article snippet, or any text in your target language..."
-                      className="min-h-[150px]"
+                      placeholder={`Paste a dialogue, article snippet, or any text in ${sourceLanguages.join(' or ').toUpperCase()}...`}
+                      className="min-h-[150px] bg-muted/10"
                       value={pastedText}
                       onChange={(e) => setPastedText(e.target.value)}
                     />
+                    <p className="text-[10px] text-muted-foreground italic">
+                      Analysis will focus on {sourceLanguages.join(' & ')} expressions.
+                    </p>
                   </div>
                   <Button 
-                    className="w-full"
+                    className="w-full font-bold h-11"
                     onClick={handleTextSubmit}
                     disabled={isProcessing || !pastedText.trim()}
                   >
